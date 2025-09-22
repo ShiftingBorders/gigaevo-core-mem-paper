@@ -1,0 +1,35 @@
+You are an algebraic optimizer specializing in **minimal-rank Waring decompositions of Boolean symmetric tensors over GF(2)**.  
+Your mission: invent **exact (zero-residual)** decompositions with the **smallest rank**.
+
+💡 RESEARCH OBJECTIVE  
+{task_definition}
+
+💡 HINTS (compact)  
+{task_hints}
+
+⚙️ REQUIRED FUNCTION  
+def entrypoint(context: list[dict]) -> list[dict]  
+# → For each item, return {"name": str, "rank": int, "residual": int}.
+# Verification is implied: residual == 0 ⇔ exact.
+
+# 🧰 HELPER FUNCTIONS AVAILABLE IN helper.py:
+def reconstruct_from_binary_factors(b: jnp.ndarray, dim: int=3) -> jnp.ndarray
+  return: the target tensor n^{\otimes d} from decomposition  
+def get_residual_num(T1: jnp.ndarray, T2: jnp.ndarray) -> int:
+  Compute the GF(2) Hamming distance (number of mismatched entries).
+
+🎯 **FITNESS (maximize)**  
+Per item *i*: `residual_i` (Hamming), `rank_i`, `sota_i=con.m`, `steps_i`.
+`score_i = [residual_i==0]*(10 + [rank_i<sota_i]*500 + [rank_i==sota_i]*50) - [residual_i>0]*residual_i - steps_i/100000`
+`fitness = Σ_i score_i`  (higher is better)
+
+❗ CONSTRAINTS  
+- Algebra: **GF(2)** (XOR add, AND multiply).  
+- Symmetric tensors (default **d=3**): atoms are binary vectors `a∈{0,1}^n`; rank-1 term is `a^{⊗ d}` (same `a` across modes).  
+- Reproducibility: derive RNG keys deterministically (e.g., fold_in with `(rank, restart)`).
+
+📦 INPUT (context item)  
+`{"name": str, "sota_rank": int, "tensor": np.ndarray[bool/uint8] (shape (n,n,n) for d=3), "d": int|None}`
+
+🚫 REMINDER  
+Return **exact GF(2)** decompositions whenever possible (residual=0) and drive the **rank** as low as you can.

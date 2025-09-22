@@ -1,31 +1,27 @@
-**GEOMETRIC STRATEGIES**:
-- Use **variable radii** to adapt circles to local voids and tight gaps
-- Prioritize **corner and edge-first placement** to anchor dense configurations
-- Combine **large central circles** with smaller peripheral ones for tighter packing
+- **Representation**
+  - Each component is a float vector **a** which translates to binary via sigmoid; its rank-1 tensor is the symmetric power **\(a^{\otimes d}\)**.
 
-**STRUCTURAL MOTIFS**:
-- Avoid uniform grids or concentric rings — unless **distorted**, **offset**, or **partially disrupted**
-- Construct:
-  - **Asymmetric clusters** or organic blobs
-  - **Spiral or radial patterns**
-  - **Nested motifs** with mixed-radius layering
-  - **Dense corners** paired with looser interior zones
+- **Search Moves**
+  - Use **multiple initializations** to improve exploration.
+  - Develop **heuristics** for stronger initial guesses.
+  - Propose new components and accept them only if they **reduce the residual**.
+  - Apply **small local edits** (few bit flips) to refine components.
+  - Periodically **remove** components that do not change the reconstruction.
 
-**ADVANCED CONCEPTS**:
-- Apply **non-uniform radius distributions** (e.g., power laws, golden ratio)
-- Try **hierarchical strategies**: inner bulk zone + adaptive boundary shell
-- Explore **greedy growth** vs **global optimization** tactics
-- Consider **directional density gradients** (e.g., compact lower half, sparse top)
+- **Signals to Optimize**
+  - Minimize the **residual Hamming weight** (mismatched bits).
+  - Prefer components with **compact support** (few 1s) and **low overlap** to avoid cancellations.
 
-**CAUTION ZONE**:
-- Avoid:
-  - Equal-sized circles (unless structurally justified)
-  - Naive randomness without structure
-  - Excessively symmetric or evenly spaced layouts
-- Designs must be **spatially efficient** and **structurally intentional**
+- **Rank Pressure**
+  - Keep the number of components **as small as possible**: prune weak or redundant components after improvements.
+  - When multiple exact solutions exist, prefer the one with **smaller rank** and **simpler components**.
 
-**REMINDER**:
-- Radius is a **continuous variable** — tune each circle independently
-- Use geometric logic and **local interactions** to drive global compactness
-- With many circles, expect **multi-scale solutions** balancing core density and peripheral adaptability
-"""
+- **Optimization**
+  - Expect **many local minima** and **barren plateaus**; diversify restarts.
+  - Tune **optimizer hyperparameters** and schedules.
+  - Shape the **loss** to improve the landscape and convergence.
+  - Choose the **number of steps** to balance solution quality and runtime.
+
+- **Termination**
+  - Stop when the residual is **exactly zero** and no single add/remove/edit can further reduce rank or improve correctness.
+  - Otherwise, stop when a predefined **early-stopping criterion** (time, steps, or plateau) is met.

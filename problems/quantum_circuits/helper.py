@@ -3,6 +3,17 @@ import jax
 import jax.numpy as jnp
 from typing import List, Tuple
 
+
+def reconstruct_from_binary_factors(b: jnp.ndarray, dim: int=3) -> jnp.ndarray:
+    letters = ''.join(chr(97 + i) for i in range(dim))
+    spec = ','.join(f"{chr(97+i)}r" for i in range(dim)) + "->" + letters + "r"
+    and_per_r = jnp.einsum(spec, *([b] * dim)).astype(jnp.uint8)
+    return (jnp.sum(and_per_r, axis=-1) & jnp.uint8(1)).astype(jnp.uint8)
+
+def get_residual_num(T1: jnp.ndarray, T2: jnp.ndarray):
+    return int(jnp.sum(T1 ^ T2))
+
+# это для теста нужно было
 def matmul_tensor_4x4():
     n = 4
     dim = n*n
@@ -61,6 +72,3 @@ def generate_symmetric_bool_tensor(
     T = (jnp.sum(and_per_r, axis=-1) % 2).astype(jnp.uint8)
 
     return (T, factors) if return_factors else T
-
-
-
