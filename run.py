@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 import os
 from pathlib import Path
 import time
-from typing import Any, Dict, List
+from urllib.parse import urlsplit
 
 # Main imports
 from loguru import logger
@@ -30,7 +30,9 @@ from src.database.redis_program_storage import (
 )
 from src.evolution.engine import EngineConfig, EvolutionEngine
 from src.evolution.mutation.llm import LLMMutationOperator
-from src.evolution.mutation.parent_selector import AllCombinationsParentSelector, WeightedRandomParentSelector
+from src.evolution.mutation.parent_selector import (
+    AllCombinationsParentSelector,
+)
 from src.evolution.strategies.map_elites import (
     BehaviorSpace,
     BinningType,
@@ -41,27 +43,20 @@ from src.evolution.strategies.map_elites import (
     SumArchiveSelector,
     TopFitnessMigrantSelector,
 )
-from src.llm.wrapper import LLMConfig, LLMWrapper, MultiModelLLMWrapper
-from src.programs.automata import ExecutionOrderDependency
-from src.programs.program import Program
-from src.programs.stages.base import Stage
-from src.programs.stages.execution import (
-    RunCodeStage,
-    RunPythonCode,
-    RunValidationStage,
+from src.llm.wrapper import LLMConfig, MultiModelLLMWrapper
+from src.programs.metrics.context import MetricsContext
+from src.programs.metrics.formatter import MetricsFormatter
+from src.problems.context import ProblemContext
+from src.problems.initial_loaders import (
+    DirectoryProgramLoader,
+    RedisTopProgramsLoader,
 )
-from src.programs.stages.insights import (
-    GenerateLLMInsightsStage,
-    InsightsConfig,
-)
-from src.programs.stages.insights_lineage import (
-    GenerateLineageInsightsStage,
-    LineageInsightsConfig,
-)
-from src.programs.stages.metrics import FactoryMetricsStage
-from src.programs.stages.validation import ValidateCodeStage
-from src.runner.dag_spec import DAGSpec
 from src.runner.manager import RunnerConfig, RunnerManager
+from src.runner.pipeline_factory import (
+    PipelineContext,
+    DefaultPipelineBuilder,
+    ContextPipelineBuilder,
+)
 
 # Setup logging first
 from src.utils.logger_setup import setup_logger
@@ -81,12 +76,12 @@ def parse_arguments() -> argparse.Namespace:
         epilog="""
 Examples:
   # Use initial programs from directory
-  %(prog)s --problem-dir problems/hexagon_pack --min-fitness 0 --max-fitness 100
-  %(prog)s --problem-dir problems/hexagon_pack --redis-db 1 --verbose --min-fitness 0 --max-fitness 100
+  %(prog)s --problem-dir problems/hexagon_pack
+  %(prog)s --problem-dir problems/hexagon_pack --redis-db 1
   
   # Use top programs from existing Redis database (by fitness)
-  %(prog)s --problem-dir problems/hexagon_pack --use-redis-selection --source-redis-db 0 --top-n 30 --min-fitness 0 --max-fitness 100
-  %(prog)s --problem-dir problems/hexagon_pack --use-redis-selection --redis-host remote-host --redis-port 6379 --source-redis-db 2 --top-n 50 --min-fitness 0 --max-fitness 100
+  %(prog)s --problem-dir problems/hexagon_pack --use-redis-selection --source-redis-db 0 --top-n 30
+  %(prog)s --problem-dir problems/hexagon_pack --use-redis-selection --redis-host remote-host --redis-port 6379 --source-redis-db 2 --top-n 50
         """,
     )
 
@@ -105,6 +100,12 @@ Examples:
 
     # Redis configuration
     redis_group = parser.add_argument_group("Redis Configuration")
+    redis_group.add_argument(
+        "--redis-url",
+        type=str,
+        default=None,
+        help="Redis URL, e.g. redis://host:port/db (overrides host/port/db flags)",
+    )
     redis_group.add_argument(
         "--redis-host",
         type=str,
@@ -139,20 +140,6 @@ Examples:
         help="Initial population size (default: auto-determined)",
     )
 
-    # TODO: Will be replaced with config files, command line arguments are temporary
-    evolution_group.add_argument(
-        "--min-fitness",
-        type=float,
-        required=True,
-        help="Minimum fitness value for program to be considered",
-    )
-    evolution_group.add_argument(
-        "--max-fitness",
-        type=float,
-        required=True,
-        help="Maximum fitness value for program to be considered",
-    )
-
     # Redis selection configuration
     redis_selection_group = parser.add_argument_group(
         "Redis Selection Configuration"
@@ -161,6 +148,12 @@ Examples:
         "--use-redis-selection",
         action="store_true",
         help="Use Redis selection instead of initial programs directory",
+    )
+    redis_selection_group.add_argument(
+        "--source-redis-url",
+        type=str,
+        default=None,
+        help="Source Redis URL for program selection (overrides source host/port/db)",
     )
     redis_selection_group.add_argument(
         "--source-redis-db",
@@ -189,9 +182,6 @@ Examples:
         default="logs",
         help="Directory for log files (default: logs)",
     )
-    logging_group.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
-    )
 
     # Performance configuration
     performance_group = parser.add_argument_group("Performance Configuration")
@@ -205,58 +195,6 @@ Examples:
     return parser.parse_args()
 
 
-def validate_problem_directory(
-    problem_dir: Path, add_context: bool = False
-) -> None:
-    """Validate that the problem directory contains required files and directories."""
-    required_files = [
-        "task_description.txt",
-        "task_hints.txt",
-        "validate.py",
-        "mutation_system_prompt.txt",
-        "mutation_user_prompt.txt",
-    ]
-
-    if add_context:
-        required_files.append("context.py")
-
-    required_directories = ["initial_programs"]
-
-    missing_files = []
-    for filename in required_files:
-        if not (problem_dir / filename).exists():
-            missing_files.append(filename)
-
-    missing_directories = []
-    for dirname in required_directories:
-        if not (problem_dir / dirname).exists():
-            missing_directories.append(dirname)
-
-    if missing_files or missing_directories:
-        missing_items = missing_files + [f"{d}/" for d in missing_directories]
-        raise FileNotFoundError(
-            f"Missing required files/directories in {problem_dir}: {', '.join(missing_items)}"
-        )
-
-    # Validate that initial_programs directory has at least one Python file
-    initial_programs_dir = problem_dir / "initial_programs"
-    python_files = list(initial_programs_dir.glob("*.py"))
-    if not python_files:
-        raise FileNotFoundError(
-            f"No Python files found in {initial_programs_dir}. "
-            "At least one initial program is required."
-        )
-
-
-def load_problem_file(problem_dir: Path, filename: str) -> str:
-    """Load a text file from the problem directory."""
-    file_path = problem_dir / filename
-    if not file_path.exists():
-        raise FileNotFoundError(f"Problem file not found: {file_path}")
-
-    return file_path.read_text().strip()
-
-
 # Configuration constants
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
@@ -265,208 +203,32 @@ REDIS_DB = os.getenv("REDIS_DB", "0")
 LLM_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 
-def load_initial_programs_from_directory(problem_dir: Path) -> List[Program]:
-    """Load initial programs from the initial_programs subdirectory."""
-    initial_programs_dir = problem_dir / "initial_programs"
+def create_behavior_spaces(
+    metrics_context: MetricsContext,
+) -> list[BehaviorSpace]:
+    """Create behavior spaces using bounds from MetricsContext."""
 
-    if not initial_programs_dir.exists():
-        logger.warning(f"No initial_programs directory found in {problem_dir}")
-        return []
+    primary_key = metrics_context.get_primary_spec().key
+    primary_bounds = metrics_context.get_bounds(primary_key)
+    valid_bounds = metrics_context.get_bounds("is_valid")
 
-    programs = []
-
-    # Load all Python files from the initial_programs directory
-    python_files = list(initial_programs_dir.glob("*.py"))
-
-    if not python_files:
-        logger.warning(f"No Python files found in {initial_programs_dir}")
-        return []
-
-    logger.info(
-        f"Loading {len(python_files)} initial programs from {initial_programs_dir}"
-    )
-
-    for program_file in python_files:
-        try:
-            program_code = program_file.read_text()
-            program = Program(code=program_code)
-            program.metadata = {
-                "source": "initial_program",
-                "strategy_name": program_file.stem,
-                "file_path": str(program_file),
-                "iteration": 0,
-            }
-            programs.append(program)
-            logger.info(f"  ✅ Loaded initial program: {program_file.stem}")
-        except Exception as e:
-            logger.warning(f"  ⚠️ Failed to load {program_file}: {e}")
-
-    return programs
-
-
-async def create_initial_population(
-    redis_storage: RedisProgramStorage, problem_dir: Path
-) -> List[Program]:
-    """
-    Create initial population from programs in the initial_programs directory.
-
-    Args:
-        redis_storage: Target Redis storage
-        problem_dir: Problem directory path
-
-    Returns:
-        List of programs added to database
-    """
-    logger.info("🌱 Creating initial population...")
-
-    # Load all initial programs from the initial_programs directory
-    initial_programs = load_initial_programs_from_directory(problem_dir)
-
-    if not initial_programs:
-        raise RuntimeError(
-            f"No initial programs found in {problem_dir}/initial_programs/. "
-            "At least one Python file is required."
+    if primary_bounds is None:
+        raise ValueError(
+            f"Primary metric '{primary_key}' must define lower_bound and upper_bound in metrics.yaml"
+        )
+    if valid_bounds is None:
+        raise ValueError(
+            "'is_valid' must define lower_bound and upper_bound in metrics.yaml"
         )
 
-    programs = []
-
-    # Add all initial programs to the database
-    for program in initial_programs:
-        await redis_storage.add(program)
-        programs.append(program)
-        strategy_name = program.metadata.get("strategy_name", "unknown")
-        logger.info(f"  ✅ Added initial program: {strategy_name}")
-
-    logger.info(
-        f"🎯 Successfully created initial population of {len(programs)} programs"
-    )
-    return programs
-
-
-async def select_top_programs_from_redis(
-    redis_storage: RedisProgramStorage,
-    source_redis_host: str,
-    source_redis_port: int,
-    source_redis_db: int,
-    problem_dir: Path,
-    top_n: int = 50,
-) -> List[Program]:
-    """
-    Select top programs by fitness from an existing Redis database.
-
-    Args:
-        redis_storage: Target Redis storage where selected programs will be added
-        source_redis_host: Host of the source Redis database
-        source_redis_port: Port of the source Redis database
-        source_redis_db: Database number of the source Redis database
-        problem_dir: Problem directory path (used to construct key prefix)
-        top_n: Number of top programs to select
-
-    Returns:
-        List of selected programs added to target database
-    """
-    logger.info(
-        f"🔍 Selecting top {top_n} programs from Redis {source_redis_host}:{source_redis_port}/{source_redis_db}..."
-    )
-
-    # Create source Redis storage connection with same key prefix construction
-    source_storage = RedisProgramStorage(
-        RedisProgramStorageConfig(
-            redis_url=f"redis://{source_redis_host}:{source_redis_port}/{source_redis_db}",
-            key_prefix=f"{problem_dir.name}_evolution",
-            max_connections=50,
-            connection_pool_timeout=30.0,
-            health_check_interval=60,
-        )
-    )
-
-    try:
-        # Get all programs from source database
-        logger.info("📥 Retrieving all programs from source database...")
-        all_programs = await source_storage.get_all()
-        logger.info(
-            f"📊 Found {len(all_programs)} total programs in source database"
-        )
-
-        if not all_programs:
-            logger.warning("⚠️ No programs found in source database")
-            return []
-
-        # Filter programs that have fitness metrics
-        programs_with_fitness = []
-        for program in all_programs:
-            if program.metrics and "fitness" in program.metrics:
-                programs_with_fitness.append(program)
-
-        logger.info(
-            f"🔄 Found {len(programs_with_fitness)} programs with fitness metrics"
-        )
-
-        if not programs_with_fitness:
-            logger.warning("⚠️ No programs with fitness metrics found")
-            return []
-
-        programs_with_fitness.sort(
-            key=lambda p: p.metrics.get("fitness", -float("inf")), reverse=True
-        )
-        selected_programs = programs_with_fitness[:top_n]
-
-        logger.info(
-            f"🎯 Selected {len(selected_programs)} top programs by fitness"
-        )
-
-        # Add selected programs to target database
-        added_programs = []
-        for i, program in enumerate(selected_programs):
-            program_to_add = Program(code=program.code)
-            # Update metadata to indicate source
-            program_to_add.metadata = {
-                "source": "redis_selection",
-                "source_db": source_redis_db,
-                "selection_rank": i + 1,
-                "original_id": program.id,
-                "iteration": 0,
-            }
-
-            # Add to target database
-            await redis_storage.add(program_to_add)
-            added_programs.append(program_to_add)
-
-            fitness = program.metrics.get("fitness", "N/A")
-            logger.info(
-                f"  ✅ Added program {i+1}/{len(selected_programs)}: fitness={fitness}"
-            )
-
-        logger.info(
-            f"🎯 Successfully selected and added {len(added_programs)} top programs"
-        )
-        return added_programs
-
-    except Exception as e:
-        logger.error(f"❌ Failed to select top programs: {e}")
-        raise
-    finally:
-        # Clean up source connection
-        try:
-            await source_storage.close()
-        except Exception as e:
-            logger.warning(f"⚠️ Error closing source storage: {e}")
-
-
-def create_behavior_spaces(args: argparse.Namespace) -> List[BehaviorSpace]:
-    """
-    One island with fitness and validity metrics. Good enough for now.
-    """
-
-    # 🏝️ 1. Fitness–Validity Island
     fitness_validity_space = BehaviorSpace(
         feature_bounds={
-            "fitness": (args.min_fitness, args.max_fitness),
-            "is_valid": (-0.01, 1.01),
+            primary_key: primary_bounds,
+            "is_valid": valid_bounds,
         },
-        resolution={"fitness": 150, "is_valid": 2},
+        resolution={primary_key: 150, "is_valid": 2},
         binning_types={
-            "fitness": BinningType.LINEAR,
+            primary_key: BinningType.LINEAR,
             "is_valid": BinningType.LINEAR,
         },
     )
@@ -477,18 +239,33 @@ def create_behavior_spaces(args: argparse.Namespace) -> List[BehaviorSpace]:
 
 
 def create_island_configs(
-    behavior_spaces: List[BehaviorSpace],
-) -> List[IslandConfig]:
+    behavior_spaces: list[BehaviorSpace], metrics_context: MetricsContext
+) -> list[IslandConfig]:
     """Create 1 island configurations with improved resolution balance and migration strategies."""
 
+    primary_key = metrics_context.get_primary_spec().key
     configs = IslandConfig(
         island_id="fitness_island",
         max_size=75,
         behavior_space=behavior_spaces[0],
-        archive_selector=SumArchiveSelector(["fitness"]),
-        elite_selector=FitnessProportionalEliteSelector("fitness"),
-        archive_remover=FitnessArchiveRemover("fitness"),
-        migrant_selector=TopFitnessMigrantSelector("fitness"),
+        archive_selector=SumArchiveSelector(
+            [primary_key],
+            fitness_key_higher_is_better={
+                primary_key: metrics_context.is_higher_better(primary_key)
+            },
+        ),
+        elite_selector=FitnessProportionalEliteSelector(
+            primary_key,
+            metrics_context.is_higher_better(primary_key),
+        ),
+        archive_remover=FitnessArchiveRemover(
+            primary_key,
+            metrics_context.is_higher_better(primary_key),
+        ),
+        migrant_selector=TopFitnessMigrantSelector(
+            primary_key,
+            metrics_context.is_higher_better(primary_key),
+        ),
         migration_rate=0.0,
     )
 
@@ -497,164 +274,13 @@ def create_island_configs(
     ]
 
 
-def create_dag_stages(
-    llm_wrapper: dict[str, LLMWrapper],
-    redis_storage: RedisProgramStorage,
-    task_description: str,
-    problem_dir: Path,
-    add_context: bool = False,
-) -> Dict[str, Stage]:
-    """Create optimized DAG stages with stage-specific timeouts and resource allocation."""
-
-    stages = {}
-
-    stages["ValidateCompiles"] = lambda: ValidateCodeStage(
-        stage_name="ValidateCompiles",
-        max_code_length=24000,
-        timeout=30.0,
-        safe_mode=True,
-    )
-
-    if add_context:
-        stages["AddContext"] = lambda: RunPythonCode(
-            code=load_problem_file(problem_dir, "context.py"),
-            stage_name="AddContext",
-            function_name="build_context",
-            python_path=[problem_dir.resolve()],
-            timeout=120.0,
-            max_memory_mb=1024,
-        )
-
-    stages["ExecuteCode"] = lambda: RunCodeStage(
-        stage_name="ExecuteCode",
-        function_name="entrypoint",
-        context_stage="AddContext" if add_context else None,
-        python_path=[problem_dir.resolve()],
-        timeout=600.0,
-        max_memory_mb=512,
-    )
-
-    validator_path = problem_dir / "validate.py"
-    stages["RunValidation"] = lambda: RunValidationStage(
-        stage_name="RunValidation",
-        validator_path=validator_path,
-        data_to_validate_stage="ExecuteCode",
-        context_stage="AddContext" if add_context else None,
-        function_name="validate",
-        timeout=60.0,
-    )
-
-    def create_insights_stage():
-        return GenerateLLMInsightsStage(
-            config=InsightsConfig(
-                llm_wrapper=llm_wrapper["insights"],
-                evolutionary_task_description=task_description,
-                max_insights=8,
-                output_format="text",
-                metrics_to_display={
-                    "fitness": "Main objective, higher is better",
-                    "is_valid": "Whether the program is valid 1 if valid, 0 if invalid",
-                },
-                metadata_key="insights",
-                excluded_error_stages=[
-                    "FactoryMetricUpdate",
-                    "ComplexityMetricUpdate",
-                ],
-            ),
-            timeout=600.0,
-        )
-
-    def create_lineage_insights_stage():
-        return GenerateLineageInsightsStage(
-            config=LineageInsightsConfig(
-                llm_wrapper=llm_wrapper["lineage"],
-                metric_key="fitness",
-                metric_description="main objective, higher is better",
-                higher_is_better=True,
-                parent_selection_strategy="best_fitness",
-                fitness_selector_metric="fitness",
-                fitness_selector_higher_is_better=True,
-                task_description=task_description,
-                additional_metrics={},
-            ),
-            storage=redis_storage,
-            timeout=600,
-        )
-
-    stages["LLMInsights"] = create_insights_stage
-    stages["LineageInsights"] = create_lineage_insights_stage
-
-    # Stage 5a: Validation metrics factory (FAST - 15s timeout)
-    def validation_metrics_factory() -> Dict[str, Any]:
-        """Factory function that creates default validation metrics when validation fails."""
-        return {
-            "fitness": -1000.0,  # Very bad fitness for failed programs
-            "is_valid": 0,
-        }
-
-    stages["ValidationMetricUpdate"] = lambda: FactoryMetricsStage(
-        stage_name="ValidationMetricUpdate",
-        stage_to_extract_metrics="RunValidation",
-        metrics_factory=validation_metrics_factory,
-        required_keys=["fitness", "is_valid"],
-        timeout=15.0,
-    )
-
-    return stages
-
-
-def create_dag_edges(add_context: bool = False) -> Dict[str, List[str]]:
-    """Define the DAG execution dependencies."""
-    base_dag = {
-        "ValidateCompiles": [
-            "ExecuteCode",
-        ],  # Both can run after validation
-        "ExecuteCode": ["RunValidation"],
-        "RunValidation": [],
-        "LLMInsights": [],  # Terminal stage
-        "LineageInsights": [],  # Terminal stage
-        "ValidationMetricUpdate": [],  # Independent terminal stage
-        "ComplexityMetricUpdate": [],  # Independent terminal stage - NO dependency on ValidationMetricUpdate
-        "FutureLineageInsights": [],  # Terminal stage
-    }
-    if add_context:
-        # first create code, then everything else
-        base_dag["AddContext"] = [
-            "ValidateCompiles",
-        ]
-    return base_dag
-
-
-def create_execution_order_deps() -> Dict[str, List[ExecutionOrderDependency]]:
-    """Define execution order dependencies for stages that should run under special conditions."""
-    return {
-        "ValidationMetricUpdate": [
-            ExecutionOrderDependency.always_after("ValidateCompiles"),
-            ExecutionOrderDependency.always_after("ExecuteCode"),
-            ExecutionOrderDependency.always_after("RunValidation"),
-        ],
-        "LLMInsights": [
-            ExecutionOrderDependency.always_after("ValidateCompiles"),
-            ExecutionOrderDependency.always_after("ExecuteCode"),
-            ExecutionOrderDependency.always_after("RunValidation"),
-            ExecutionOrderDependency.always_after("ValidationMetricUpdate"),
-        ],
-        "LineageInsights": [
-            ExecutionOrderDependency.always_after("ValidateCompiles"),
-            ExecutionOrderDependency.always_after("ExecuteCode"),
-            ExecutionOrderDependency.always_after("RunValidation"),
-            ExecutionOrderDependency.always_after("ValidationMetricUpdate"),
-        ],
-    }
-
-
 async def create_evolution_strategy(
     redis_storage: RedisProgramStorage,
-    args: argparse.Namespace,
+    metrics_context: MetricsContext,
 ) -> MapElitesMultiIsland:
 
-    behavior_spaces = create_behavior_spaces(args)
-    island_configs = create_island_configs(behavior_spaces)
+    behavior_spaces = create_behavior_spaces(metrics_context)
+    island_configs = create_island_configs(behavior_spaces, metrics_context)
 
     strategy = MapElitesMultiIsland(
         island_configs=island_configs,
@@ -696,54 +322,72 @@ async def setup_llm_wrapper() -> dict[str, MultiModelLLMWrapper]:
     }
 
     def build_wrapper_with_params(
-        stage: str,
         params: dict[str, float],
     ) -> MultiModelLLMWrapper:
 
         return MultiModelLLMWrapper(
             models=[
-                "Qwen3-235B-A22B-Thinking-2507"
+                "Qwen3-235B-A22B-Thinking-2507",
             ],
             probabilities=[1.0],
             api_key=LLM_API_KEY,
             configs=[
-                LLMConfig(
-                    **params,
-                    api_endpoint="http://localhost:8999/v1",
-                )
+                LLMConfig(**params, api_endpoint="http://localhost:8777/v1"),
             ],
         )
 
     res = {
-        stage: build_wrapper_with_params(stage, params)
+        stage: build_wrapper_with_params(params)
         for stage, params in settings_per_stage.items()
     }
     return res
 
 
-async def run_evolution_experiment(args: argparse.Namespace):
+def _resolve_redis_url(
+    host: str, port: int, db: int, url_override: str | None
+) -> str:
+    """Build a Redis URL from host/port/db unless an override is provided."""
+    if url_override:
+        return url_override
+    return f"redis://{host}:{port}/{db}"
+
+
+def _parse_redis_url(url: str) -> tuple[str, int, int]:
+    """Parse a redis://host:port/db URL into components."""
+    parts = urlsplit(url)
+    host = parts.hostname or "localhost"
+    port = parts.port or 6379
+    db: int
+    try:
+        db = int((parts.path or "/0").lstrip("/"))
+    except ValueError:
+        db = 0
+    return host, port, db
+
+
+async def run_evolution_experiment(
+    cli_args: argparse.Namespace, log_file_path: str
+):
     """Run the complete evolution experiment with provided configuration."""
 
     start_time = time.time()
-    problem_dir = Path(args.problem_dir)
+    problem_dir = Path(cli_args.problem_dir)
 
     logger.info("🔄 Starting MetaEvolve Evolution Experiment")
     logger.info(f"📁 Problem directory: {problem_dir}")
     logger.info(f"📁 Log file: {log_file_path}")
     logger.info(f"🕐 Start time: {datetime.now(timezone.utc).isoformat()}")
 
-    # Validate problem directory
-    try:
-        validate_problem_directory(problem_dir, args.add_context)
-        logger.info("✅ Problem directory validated")
-    except Exception as e:
-        logger.error(f"❌ Problem directory validation failed: {e}")
-        return
-
     # Setup Redis storage
+    target_redis_url = _resolve_redis_url(
+        cli_args.redis_host,
+        cli_args.redis_port,
+        cli_args.redis_db,
+        cli_args.redis_url,
+    )
     redis_storage = RedisProgramStorage(
         RedisProgramStorageConfig(
-            redis_url=f"redis://{args.redis_host}:{args.redis_port}/{args.redis_db}",
+            redis_url=target_redis_url,
             key_prefix=f"{problem_dir.name}_evolution",
             max_connections=150,
             connection_pool_timeout=45.0,
@@ -756,55 +400,77 @@ async def run_evolution_experiment(args: argparse.Namespace):
     try:
         # Clear the target database to start fresh
         logger.info(
-            f"🧹 Clearing Redis database {args.redis_db} for restart..."
+            f"🧹 Clearing Redis database {cli_args.redis_db} for restart..."
         )
-        redis_conn = await redis_storage._conn()
-        await redis_conn.flushdb()
-        logger.info(f"✓ Redis database {args.redis_db} cleared")
+        await redis_storage.flushdb()
+        logger.info(f"✓ Redis database {cli_args.redis_db} cleared")
+
+        # Build problem context (centralized assets)
+        problem_ctx = ProblemContext(problem_dir)
+        problem_ctx.validate(add_context=cli_args.add_context)
+        metrics_context = problem_ctx.metrics_context
 
         # Initialize new DB with initial programs
-        if args.use_redis_selection:
+        if cli_args.use_redis_selection:
             logger.info(
                 "🔍 Initializing database with selected programs from Redis..."
             )
-            programs = await select_top_programs_from_redis(
-                redis_storage=redis_storage,
-                source_redis_host=args.redis_host,
-                source_redis_port=args.redis_port,
-                source_redis_db=args.source_redis_db,
-                problem_dir=problem_dir,
-                top_n=args.top_n,
+            primary_key = metrics_context.get_primary_spec().key
+            source_host = cli_args.redis_host
+            source_port = cli_args.redis_port
+            source_db = cli_args.source_redis_db
+            if cli_args.source_redis_url:
+                source_host, source_port, source_db = _parse_redis_url(
+                    cli_args.source_redis_url
+                )
+            loader = RedisTopProgramsLoader(
+                source_host=source_host,
+                source_port=source_port,
+                source_db=source_db,
+                key_prefix=f"{problem_dir.name}_evolution",
+                metric_key=primary_key,
+                higher_is_better=metrics_context.is_higher_better(primary_key),
+                top_n=cli_args.top_n,
             )
+            programs = await loader.load(redis_storage)
         else:
             logger.info("🌱 Initializing database with initial programs...")
-            programs = await create_initial_population(
-                redis_storage, problem_dir
+            programs = await DirectoryProgramLoader(problem_dir).load(
+                redis_storage
             )
 
-        task_description = load_problem_file(
-            problem_dir, "task_description.txt"
-        )
-        task_hints = load_problem_file(problem_dir, "task_hints.txt")
+        task_description = problem_ctx.task_description
+        task_hints = problem_ctx.task_hints
 
         logger.info("Setting up LLM wrapper...")
         llm_wrapper = await setup_llm_wrapper()
 
         logger.info("Creating DAG pipeline...")
-        dag_stages = create_dag_stages(
-            llm_wrapper,
-            redis_storage,
-            task_description,
-            problem_dir,
-            args.add_context,
+        metrics_formatter = MetricsFormatter(
+            metrics_context, use_range_normalization=False
         )
-        dag_edges = create_dag_edges(args.add_context)
-        execution_order_deps = create_execution_order_deps()
-        entry_points = ["ValidateCompiles"]
+
+        pctx = PipelineContext(
+            problem_ctx=problem_ctx,
+            metrics_context=metrics_context,
+            metrics_formatter=metrics_formatter,
+            llm_wrapper=llm_wrapper,
+            storage=redis_storage,
+            task_description=task_description,
+            add_context=cli_args.add_context,
+        )
+        if cli_args.add_context:
+            builder = ContextPipelineBuilder(pctx)
+        else:
+            builder = DefaultPipelineBuilder(pctx)
+        dag_spec = builder.set_limits(
+            dag_timeout=1800, max_parallel=8
+        ).build_spec()
 
         # Create evolution strategy
         logger.info("Creating evolution strategy...")
         evolution_strategy = await create_evolution_strategy(
-            redis_storage, args
+            redis_storage, metrics_context
         )
 
         # Create LLM mutation operator
@@ -821,17 +487,13 @@ async def run_evolution_experiment(args: argparse.Namespace):
             ),
             task_definition=task_description,
             task_hints=task_hints,
-            system_prompt_template=load_problem_file(
-                problem_dir, "mutation_system_prompt.txt"
-            ),
-            user_prompt_templates=[load_problem_file(
-                problem_dir, "mutation_user_prompt.txt"
-            )], # optionally use a list of templates with weights to be randomly selected
+            system_prompt_template=problem_ctx.mutation_system_prompt,
+            user_prompt_templates=[
+                problem_ctx.mutation_user_prompt
+            ],  # optionally use a list of templates with weights to be randomly selected
             user_prompt_template_weights_factory=lambda x: [1.0],
-            metric_descriptions={
-                "fitness": "Main objective, higher is better",
-                "is_valid": "Whether the program is valid 1 if valid, 0 if invalid",
-            }
+            metrics_context=metrics_context,
+            metrics_formatter=metrics_formatter,
         )
         required_behavior_keys = set()
         for island in evolution_strategy.islands.values():
@@ -839,16 +501,17 @@ async def run_evolution_experiment(args: argparse.Namespace):
                 island.config.behavior_space.behavior_keys
             )
 
-        # TODO refactor? Create an abstraction for `function filter` which drops unsuitable programs; e.g. when metrics are missing
+        # Note: Consider an abstraction for a function filter to drop unsuitable programs
+        # (e.g., when metrics are missing).
         logger.info("Creating evolution engine...")
 
         engine_config = EngineConfig(
             loop_interval=1.0,
             max_elites_per_generation=5,  # INCREASED: More elites for better diversity preservation
             max_mutations_per_generation=8,  # INCREASED: More mutations per generation for faster exploration
-            max_generations=args.max_generations,  # Pass max_generations from command line
+            max_generations=cli_args.max_generations,  # Pass max_generations from command line
             required_behavior_keys=required_behavior_keys,
-            parent_selector=AllCombinationsParentSelector(num_parents=1),
+            parent_selector=AllCombinationsParentSelector(num_parents=2),
         )
 
         evolution_engine = EvolutionEngine(
@@ -862,21 +525,14 @@ async def run_evolution_experiment(args: argparse.Namespace):
         logger.info("Creating runner...")
         runner_config = RunnerConfig(
             poll_interval=5.0,
-            max_concurrent_dags=args.max_concurrent_dags,
+            max_concurrent_dags=cli_args.max_concurrent_dags,
             log_interval=15,
             dag_timeout=1800,
         )
 
         runner = RunnerManager(
             engine=evolution_engine,
-            dag_spec=DAGSpec(
-                nodes=dag_stages,
-                edges=dag_edges,
-                entry_points=entry_points,
-                exec_order_deps=execution_order_deps,
-                dag_timeout=1800,
-                max_parallel_stages=8,  
-            ),
+            dag_spec=dag_spec,
             storage=redis_storage,
             config=runner_config,
         )
@@ -884,34 +540,27 @@ async def run_evolution_experiment(args: argparse.Namespace):
         logger.info("🎯 Starting evolution run...")
         logger.info("Configuration:")
         logger.info(f"  - Problem directory: {problem_dir}")
-        logger.info(f"  - Target DB: {args.redis_db}")
+        logger.info(f"  - Target DB: {cli_args.redis_db}")
         logger.info(f"  - Initial population: {len(programs)} programs")
         logger.info(
-            f"  - Max generations: {args.max_generations if args.max_generations else 'unlimited'}"
+            f"  - Max generations: {cli_args.max_generations if cli_args.max_generations else 'unlimited'}"
         )
-        logger.info(f"  - DAG stages: {list(dag_stages.keys())}")
+        logger.info(f"  - DAG stages: {list(dag_spec.nodes)}")
 
         await runner.run()
 
     except KeyboardInterrupt:
         logger.info("🛑 Evolution experiment interrupted by user")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         logger.error(f"❌ Evolution experiment failed: {e}")
         raise
     finally:
         # Improved cleanup with connection pool closure
         logger.info("🧹 Starting cleanup...")
         try:
-            redis_conn = await redis_storage._conn()
-            if redis_conn:
-                # Close the connection pool properly
-                if hasattr(redis_conn, "connection_pool"):
-                    await redis_conn.connection_pool.disconnect()
-                    logger.info("✓ Redis connection pool closed")
-                if hasattr(redis_conn, "close"):
-                    await redis_conn.close()
-                    logger.info("✓ Redis connection closed")
-        except Exception as cleanup_error:
+            await redis_storage.close()
+            logger.info("✓ Redis connection closed")
+        except Exception as cleanup_error:  # pylint: disable=broad-except
             logger.warning(f"⚠️ Redis cleanup warning: {cleanup_error}")
         logger.info("🧹 Cleanup completed")
 
@@ -923,20 +572,15 @@ async def run_evolution_experiment(args: argparse.Namespace):
         logger.info(f"🕐 End time: {datetime.now(timezone.utc).isoformat()}")
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """CLI entrypoint for running MetaEvolve experiment."""
     # Parse command-line arguments
-    args = parse_arguments()
-
-    # Setup logging based on arguments
-    if args.verbose:
-        log_level = "DEBUG"
-    else:
-        log_level = args.log_level
+    cli_args = parse_arguments()
 
     # Reconfigure logging with user preferences
     log_file_path = setup_logger(
-        log_dir=args.log_dir,
-        level=log_level,
+        log_dir=cli_args.log_dir,
+        level=cli_args.log_level,
         rotation="50 MB",
         retention="30 days",
     )
@@ -944,19 +588,17 @@ if __name__ == "__main__":
     # Check prerequisites
     if not os.getenv("OPENROUTER_API_KEY"):
         logger.error("❌ OPENROUTER_API_KEY environment variable must be set")
-        exit(1)
+        raise SystemExit(1)
 
-    problem_dir = Path(args.problem_dir)
-    if not problem_dir.exists():
-        logger.error(f"❌ Problem directory not found: {problem_dir}")
-        exit(1)
-
-    # Validate problem directory structure
-    try:
-        validate_problem_directory(problem_dir)
-    except Exception as e:
-        logger.error(f"❌ Problem directory validation failed: {e}")
-        exit(1)
+    cli_problem_dir = Path(cli_args.problem_dir)
+    if not cli_problem_dir.exists():
+        logger.error(f"❌ Problem directory not found: {cli_problem_dir}")
+        raise SystemExit(1)
 
     # Run the evolution experiment
-    asyncio.run(run_evolution_experiment(args))
+    asyncio.run(run_evolution_experiment(cli_args, log_file_path))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

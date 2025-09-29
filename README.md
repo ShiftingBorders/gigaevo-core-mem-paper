@@ -13,6 +13,8 @@ MetaEvolve is a flexible, professional-grade evolutionary optimization system th
 
 ## Installation
 
+Recommended Python version: 3.12+
+
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -43,13 +45,10 @@ redis-server
 
 ```bash
 # Run evolution on the hexagon packing problem
-python run.py --problem-dir problems/hexagon_pack --min-fitness -7 --max-fitness -3.9
-
-# Run with verbose logging
-python run.py --problem-dir problems/hexagon_pack --verbose --min-fitness -7 --max-fitness -3.9
+python run.py --problem-dir problems/hexagon_pack
 
 # Use different Redis database
-python run.py --problem-dir problems/hexagon_pack --redis-db 1 --min-fitness -7 --max-fitness -3.9
+python run.py --problem-dir problems/hexagon_pack --redis-db 1
 ```
 
 ### Advanced Configuration
@@ -63,10 +62,7 @@ python run.py \
     --redis-db 2 \
     --max-concurrent-dags 8 \
     --log-level DEBUG \
-    --log-dir logs/experiment_1 \
-    --min-fitness -7 \
-    --max-fitness -3.9 \
-    --disable-monitoring
+    --log-dir logs/experiment_1
 ```
 
 ## Problem Directory Structure
@@ -120,16 +116,13 @@ The system includes three example problems demonstrating different types of opti
 **Usage**:
 ```bash
 # Basic hexagon packing optimization
-python run.py --problem-dir problems/hexagon_pack --min-fitness -7 --max-fitness -3.9
+python run.py --problem-dir problems/hexagon_pack
 
 # With high performance settings
 python run.py --problem-dir problems/hexagon_pack \
-    --min-fitness -7 --max-fitness -3.9 \
     --max-concurrent-dags 12 \
     --log-level INFO
 ```
-
-**Expected Fitness Range**: -7.0 to -3.9 (negative because we minimize enclosing hexagon size)
 
 ### 2. Regression Optimization (`problems/optimization/`)
 
@@ -146,18 +139,14 @@ python run.py --problem-dir problems/hexagon_pack \
 ```bash
 # Regression model optimization (note: requires --add-context)
 python run.py --problem-dir problems/optimization \
-    --add-context \
-    --min-fitness -2.0 --max-fitness 0.0
+    --add-context
 
 # With extended evolution
 python run.py --problem-dir problems/optimization \
     --add-context \
-    --min-fitness -2.0 --max-fitness 0.0 \
     --max-generations 100 \
-    --verbose
+    --log-level DEBUG
 ```
-
-**Expected Fitness Range**: -2.0 to 0.0 (negative mean squared error)
 
 ### 3. Circle Packing (`problems/toy_example/`)
 
@@ -173,17 +162,12 @@ python run.py --problem-dir problems/optimization \
 **Usage**:
 ```bash
 # Circle packing optimization
-python run.py --problem-dir problems/toy_example \
-    --min-fitness 0.0 --max-fitness 5.0
+python run.py --problem-dir problems/toy_example
 
 # With performance monitoring disabled for speed
 python run.py --problem-dir problems/toy_example \
-    --min-fitness 0.0 --max-fitness 5.0 \
-    --disable-monitoring \
     --max-concurrent-dags 16
 ```
-
-**Expected Fitness Range**: 0.0 to 5.0 (sum of circle radii)
 
 ## Configuration Options
 
@@ -191,13 +175,12 @@ python run.py --problem-dir problems/toy_example \
 
 #### Required
 - `--problem-dir`: Directory containing problem files
-- `--min-fitness`: Expected minimum fitness value during evolution
-- `--max-fitness`: Expected maximum fitness value during evolution
 
 #### Context Configuration
 - `--add-context`: Enable context mode (required for problems with `context.py`)
 
 #### Redis Configuration
+- `--redis-url`: Redis URL, e.g. `redis://host:port/db` (overrides host/port/db)
 - `--redis-host`: Redis hostname (default: localhost)
 - `--redis-port`: Redis port (default: 6379)
 - `--redis-db`: Redis database number (default: 0)
@@ -208,17 +191,16 @@ python run.py --problem-dir problems/toy_example \
 
 #### Redis Selection Mode
 - `--use-redis-selection`: Use existing Redis programs instead of initial_programs/
+- `--source-redis-url`: Source Redis URL for program selection (overrides source host/port/db)
 - `--source-redis-db`: Source Redis database for program selection (default: 0)
 - `--top-n`: Number of top programs to select by fitness (default: 50)
 
 #### Performance Configuration
 - `--max-concurrent-dags`: Maximum concurrent DAG executions (default: 6)
-- `--disable-monitoring`: Disable performance monitoring
 
 #### Logging Configuration
 - `--log-level`: Logging level (DEBUG, INFO, WARNING, ERROR)
 - `--log-dir`: Directory for log files (default: logs)
-- `--verbose`: Enable verbose logging
 
 ### Environment Variables
 
@@ -234,12 +216,10 @@ python run.py --problem-dir problems/toy_example \
 ```bash
 # Run initial evolution
 python run.py --problem-dir problems/hexagon_pack \
-    --min-fitness -7 --max-fitness -3.9 \
     --redis-db 1
 
 # Continue evolution using best programs from previous run
 python run.py --problem-dir problems/hexagon_pack \
-    --min-fitness -7 --max-fitness -3.9 \
     --redis-db 2 \
     --use-redis-selection \
     --source-redis-db 1 \
@@ -251,9 +231,7 @@ python run.py --problem-dir problems/hexagon_pack \
 ```bash
 # Maximum performance setup
 python run.py --problem-dir problems/hexagon_pack \
-    --min-fitness -7 --max-fitness -3.9 \
     --max-concurrent-dags 16 \
-    --disable-monitoring \
     --log-level WARNING \
     --redis-db 3
 ```
@@ -263,8 +241,6 @@ python run.py --problem-dir problems/hexagon_pack \
 ```bash
 # Full debugging information
 python run.py --problem-dir problems/toy_example \
-    --min-fitness 0 --max-fitness 5 \
-    --verbose \
     --log-level DEBUG \
     --log-dir debug_logs \
     --max-concurrent-dags 2
@@ -276,10 +252,7 @@ python run.py --problem-dir problems/toy_example \
 # Using remote Redis server
 python run.py --problem-dir problems/optimization \
     --add-context \
-    --min-fitness -2.0 --max-fitness 0.0 \
-    --redis-host redis-server.example.com \
-    --redis-port 6380 \
-    --redis-db 5
+    --redis-url redis://redis-server.example.com:6380/5
 ```
 
 ## Architecture
@@ -310,10 +283,13 @@ High-performance evolutionary loop with configurable strategies:
 
 #### 2. DAG Pipeline System
 Flexible program execution pipeline with parallel processing:
-- **Code Validation**: Syntax checking and compilation verification
-- **Sandboxed Execution**: Safe program execution with resource limits
-- **Multi-Stage Evaluation**: Custom fitness, behavior, and complexity evaluation
-- **Metrics Collection**: Comprehensive performance and structural analysis
+- Execution-order deps: sequencing only (on_success/always_after)
+- Dataflow via edges: edges carry data only, never gate readiness
+- Mandatory/optional inputs: each stage declares (mandatory, optional_max)
+- Code Validation: Syntax checking and compilation verification
+- Sandboxed Execution: Safe program execution with resource limits
+- Multi-Stage Evaluation: Custom fitness, behavior, and complexity evaluation
+- Metrics Collection: Comprehensive performance and structural analysis
 
 #### 3. Runner Orchestration
 Coordinates evolution and execution with high concurrency:
@@ -337,12 +313,11 @@ The system uses three specialized islands:
 
 ### Execution Pipeline
 
-1. **Validation**: Check code compilation and syntax
-2. **Execution**: Run the program to generate solutions
-3. **Complexity Analysis**: Compute structural metrics
-4. **Validation**: Evaluate solution quality
-5. **Insights Generation**: Generate LLM-based insights
-6. **Metrics Collection**: Aggregate performance data
+1. Validation: Check code compilation and syntax
+2. Execution: Run the program to generate solutions
+3. Domain Validation: Evaluate solution quality (fixed validator code)
+4. Insights Generation: Generate LLM-based insights
+5. Metrics Collection: Aggregate performance data
 
 ## 🔄 How It Works
 
@@ -374,7 +349,7 @@ Each generated program goes through a multi-stage DAG pipeline:
 3. **Complexity Analysis**: Compute structural metrics (AST entropy, node count, etc.)
 4. **Domain Validation**: Run problem-specific validation function
 5. **Insights Generation**: LLM-based analysis and feedback
-6. **Metrics Collection**: Aggregate all performance data
+6. **Metrics Collection**: Aggregate performance data
 
 ### 4. Multi-Island Strategy
 The system maintains three specialized islands:
@@ -395,26 +370,33 @@ The system maintains three specialized islands:
 
 ## Creating New Problems
 
-### Step 1: Create Problem Directory
+### Step 1: Scaffold with Wizard (recommended)
 
 ```bash
-mkdir problems/my_problem
+# Minimal scaffold
+PYTHONPATH=. python tools/wizard.py problems/my_problem
+
+# Include context.py and overwrite existing files
+PYTHONPATH=. python tools/wizard.py problems/my_problem --add-context --overwrite
+
+# With custom texts
+PYTHONPATH=. python tools/wizard.py problems/my_problem \
+  --task-description "Optimize X under Y" \
+  --task-hints "Use A; consider B; avoid C" \
+  --system-prompt "... {task_definition} ... {task_hints} ... {metrics_description} ..." \
+  --user-prompt "=== Parents ({count}) ===\n{parent_blocks}\n"
 ```
 
-### Step 2: Create Required Files and Directories
+### Manual Setup (alternative)
 
 ```bash
-# Create basic problem files
+mkdir -p problems/my_problem/initial_programs
 touch problems/my_problem/task_description.txt
 touch problems/my_problem/task_hints.txt
 touch problems/my_problem/validate.py
 touch problems/my_problem/mutation_system_prompt.txt
 touch problems/my_problem/mutation_user_prompt.txt
-
-# Create initial programs directory
-mkdir problems/my_problem/initial_programs
-
-# Optional: Create context file for problems requiring external data
+# Optional:
 touch problems/my_problem/context.py
 ```
 
@@ -501,12 +483,12 @@ def build_context() -> dict[str, np.ndarray]:
 
 #### For Non-Context Problems:
 ```bash
-python run.py --problem-dir problems/my_problem --min-fitness 0 --max-fitness 1
+python run.py --problem-dir problems/my_problem
 ```
 
 #### For Context Problems:
 ```bash
-python run.py --problem-dir problems/my_problem --add-context --min-fitness 0 --max-fitness 1
+python run.py --problem-dir problems/my_problem --add-context
 ```
 
 ## Performance Monitoring
@@ -517,12 +499,6 @@ MetaEvolve includes comprehensive performance monitoring:
 - **Auto-optimization**: Automatic resource adjustment
 - **Alert System**: Performance degradation warnings
 - **Dashboard Logging**: Periodic performance summaries
-
-Disable monitoring for maximum performance:
-
-```bash
-python run.py --problem-dir problems/my_problem --disable-monitoring --min-fitness 0 --max-fitness 1
-```
 
 ## 📊 Performance
 
@@ -542,15 +518,12 @@ MetaEvolve is designed for high performance and scalability. Benchmarks on stand
 # High-performance configuration
 python run.py \
     --problem-dir problems/hexagon_pack \
-    --min-fitness -7 --max-fitness -3.9 \
     --max-concurrent-dags 12 \
-    --disable-monitoring \
     --redis-db 1
 
 # Memory-efficient configuration  
 python run.py \
     --problem-dir problems/hexagon_pack \
-    --min-fitness -7 --max-fitness -3.9 \
     --max-concurrent-dags 4 \
     --log-level WARNING
 ```
@@ -615,10 +588,10 @@ fitness_validity_space = BehaviorSpace(
 
 ### Debug Mode
 
-Enable verbose logging for detailed debugging:
+Enable detailed debugging by setting:
 
 ```bash
-python run.py --problem-dir problems/my_problem --verbose --min-fitness 0 --max-fitness 1
+--log-level DEBUG
 ```
 
 ### Log Files
