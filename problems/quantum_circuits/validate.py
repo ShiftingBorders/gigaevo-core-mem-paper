@@ -15,9 +15,9 @@ def validate(
         rank = res["factors"].shape[-1]
         if residual == 0:
             score += W_EXACT
-            if rank == con.m:
+            if rank == con.sota_rank:
                 score += W_AT_SOTA
-            if rank < con.m:
+            if rank < con.sota_rank:
                 score += W_UNDER_SOTA
         else:
             score -= res["residual"]
