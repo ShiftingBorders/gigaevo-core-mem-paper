@@ -16,9 +16,12 @@ from src.programs.program import Program, ProgramStageResult, StageState
 from src.programs.stages.base import Stage
 from src.programs.utils import build_stage_result
 from src.programs.metrics.context import MetricsContext
-from src.runner.metrics import MetricsService
+from src.runner.stage_registry import StageRegistry
 
 
+@StageRegistry.register(
+    description="Populate and validate metrics for a program"
+)
 class EnsureMetricsStage(Stage):
     """Populate and validate metrics for a program.
 
@@ -26,7 +29,7 @@ class EnsureMetricsStage(Stage):
     - Read metrics from a previous stage's output (a dict)
     - Fallback to a factory when missing/incomplete
     - Coerce values to float, ensure finiteness, and clamp to bounds
-    - Store results on the program and export to Prometheus
+    - Store results on the program
     """
 
     def __init__(
@@ -41,28 +44,28 @@ class EnsureMetricsStage(Stage):
         self.required_keys = set(metrics_context.specs.keys())
         self.metrics_context = metrics_context
 
-    def required_input_counts(self) -> tuple[int, int]:
-        # 0 required, 1 optional metrics input
-        return (0, 1)
+    @classmethod
+    def mandatory_inputs(cls) -> list[str]:
+        return []
+
+    @classmethod
+    def optional_inputs(cls) -> list[str]:
+        return ["validation_result"]
+
 
     async def _execute_stage(
         self, program: Program, started_at: datetime
     ) -> ProgramStageResult:
-        # Prefer first upstream dict payload; otherwise use factory defaults
-        inputs = self.get_inputs_seq()
-        if inputs and isinstance(c := inputs[0], dict):
-            metrics_input, src = c, "previous_stage"
+        # Get validation result by semantic name, fallback to factory if not available
+        validation_data = self.get_input_optional("validation_result")
+        if validation_data is not None and isinstance(validation_data, dict):
+            metrics_input, src = validation_data, "validation_stage"
         else:
             metrics_input, src = self._get_factory_metrics(), "factory"
 
         final_metrics = self._process_metrics(metrics_input)
         program.add_metrics(final_metrics)
 
-        # Export numeric metrics to Prometheus (optional no-op when disabled)
-        try:
-            MetricsService.export_dict("program", program.metrics)
-        except Exception as exc:  # best-effort export
-            logger.debug(f"[{self.stage_name}] Metrics export skipped: {exc}")
 
         logger.debug(
             f"[{self.stage_name}] Program {program.id}: Updated {len(final_metrics)} metrics from {src}"
@@ -118,6 +121,7 @@ class EnsureMetricsStage(Stage):
                 stage_type="metrics_finiteness",
             )
 
+        # Only apply bounds if the metric is defined in the context
         if (bounds := self.metrics_context.get_bounds(key)) is not None:
             lo, hi = bounds
             if lo is not None and value < lo:
@@ -129,8 +133,9 @@ class EnsureMetricsStage(Stage):
     def _process_metrics(self, metrics: dict[str, Any]) -> dict[str, float]:
         """Select required keys and normalize each value via _coerce_and_clamp."""
         required = list(self.required_keys)
+        available = list(metrics.keys())
         logger.debug(
-            f"[{self.stage_name}] Required={required} | available={list(metrics.keys())}"
+            f"[{self.stage_name}] Required={required} | available={available}"
         )
 
         # Presence check first for clear error messages
@@ -146,6 +151,9 @@ class EnsureMetricsStage(Stage):
         return {k: self._coerce_and_clamp(k, metrics.get(k)) for k in required}
 
 
+@StageRegistry.register(
+    description="Compute normalized metrics in [0,1] using bounds and orientation"
+)
 class NormalizeMetricsStage(Stage):
     """Compute normalized metrics in [0,1] using bounds and orientation.
 
