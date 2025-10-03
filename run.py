@@ -20,7 +20,9 @@ import os
 from pathlib import Path
 import time
 from urllib.parse import urlsplit
+from dotenv import load_dotenv
 
+load_dotenv()
 # Main imports
 from loguru import logger
 
@@ -327,12 +329,12 @@ async def setup_llm_wrapper() -> dict[str, MultiModelLLMWrapper]:
 
         return MultiModelLLMWrapper(
             models=[
-                "Qwen3-235B-A22B-Thinking-2507",
+                "deepseek/deepseek-chat-v3.1:free",
             ],
             probabilities=[1.0],
             api_key=LLM_API_KEY,
             configs=[
-                LLMConfig(**params, api_endpoint="http://localhost:8777/v1"),
+                LLMConfig(**params, api_endpoint="https://openrouter.ai/api/v1/"),
             ],
         )
 
@@ -552,7 +554,7 @@ async def run_evolution_experiment(
     except KeyboardInterrupt:
         logger.info("🛑 Evolution experiment interrupted by user")
     except Exception as e:  # pylint: disable=broad-except
-        logger.error(f"❌ Evolution experiment failed: {e}")
+        logger.error(f"❌ Evolution experiment failed: {type(e)} {e}")
         raise
     finally:
         # Improved cleanup with connection pool closure

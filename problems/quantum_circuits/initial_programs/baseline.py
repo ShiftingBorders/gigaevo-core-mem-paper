@@ -1,22 +1,20 @@
-from __future__ import annotations
+# from __future__ import annotations
+
+
 import jax
 import jax.numpy as jnp
 from jax import lax
 from jax.nn import sigmoid
 import optax
 from typing import Tuple, List, Any, Dict
-from helper import reconstruct_from_binary_factors, get_residual_num  # ensure JAX impls for speed
+from helper import reconstruct_from_binary_factors, get_residual_num, Data  # ensure JAX impls for speed
 
 DIM = 3
 
-def entrypoint(context: List[jnp.ndarray]) -> List[Dict[str, Any]]:
-    def make_spec():
-        letters = ''.join(chr(97 + i) for i in range(DIM))
-        return ','.join(f"{chr(97+i)}r" for i in range(DIM)) + "->" + letters + "r"
-
-    def smooth_reconstruction(factors: jnp.ndarray, r:int,  spec: str) -> jnp.ndarray:
+def entrypoint(context: List[Data]) -> List[Dict[str, Any]]:
+    def smooth_reconstruction(factors: jnp.ndarray) -> jnp.ndarray:
         p = sigmoid(factors)
-        and_per_r = jnp.einsum(spec, *([p] * DIM))
+        and_per_r = jnp.einsum("ar,br,cr->abcr", *([p] * DIM))
         return 0.5 * (1.0 - jnp.prod(1.0 - 2.0 * and_per_r, axis=-1))
 
     def bce_loss_from_probs(target: jnp.ndarray, P: jnp.ndarray) -> jnp.ndarray:
@@ -35,10 +33,10 @@ def entrypoint(context: List[jnp.ndarray]) -> List[Dict[str, Any]]:
     def get_optimizer(lr):
         return optax.adam(lr)
     
-    def make_trainer(target: jnp.ndarray, spec: str, lr: float):
+    def make_trainer(target: jnp.ndarray, lr: float):
         opt = get_optimizer(lr)
         def loss_fn(f: jnp.ndarray) -> jnp.ndarray:
-            P = smooth_reconstruction(f,  DIM, spec)
+            P = smooth_reconstruction(f)
             return bce_loss_from_probs(target, P)
 
         @jax.jit
@@ -67,31 +65,19 @@ def entrypoint(context: List[jnp.ndarray]) -> List[Dict[str, Any]]:
         seed: int = 1,
         start: int = 10,
         end: int = 11,
-        prune_thresh: float = 1e-3,
     ) -> Dict[str, Any]:
         n = T.shape[0]
-        spec = make_spec()
         base_key = jax.random.PRNGKey(seed)
 
         best = {"rank": None, "residual": T.size, "factors": None, "steps": 0}
         steps_used = 0
 
-        run_steps = make_trainer(T.astype(jnp.float32), spec, lr)
+        run_steps = make_trainer(T.astype(jnp.float32),  lr)
         for r in range(start, end + 1):
             for s in range(restarts):
                 F0 = generate_finit((n, r), base_key, seed=s)
                 F, used = run_steps(F0, per_rank_steps)
                 steps_used += int(used)
-
-                # prune nearly-dead columns (cheap, post-step)
-                norms = jnp.sqrt(jnp.sum(jnp.square(sigmoid(F) - 0.5), axis=0))
-                keep = norms > prune_thresh
-                if keep.sum() == 0:
-                    continue
-                if keep.sum() < r:
-                    F = F[:, keep]
-                    r = int(F.shape[1])
-
                 binF = to_binary_factors(F)
                 T_hat = reconstruct_from_binary_factors(binF, DIM)
                 residual = get_residual_num(T, T_hat)
@@ -104,14 +90,14 @@ def entrypoint(context: List[jnp.ndarray]) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
     for idx, T in enumerate(context):
         
-        max_rank = T.sota_rank + 5
+        max_rank = T.sota_rank
         res = search_min_rank(
             T=T.tensor,
-            per_rank_steps=5000,
+            per_rank_steps=500,
             lr=6e-2,
-            restarts=2,
+            restarts=10,
             seed=idx,
-            start=max_rank - 1,
+            start=max_rank - 3,
             end=max_rank + 3,
         )
         results.append(res)

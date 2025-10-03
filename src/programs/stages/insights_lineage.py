@@ -367,7 +367,7 @@ class GenerateLineageInsightsStage(Stage):
         primary_spec = self.config.metrics_context.get_primary_spec()
         return self.config.user_prompt_template.format(
             task_description=self.config.task_description,
-            metric_name=primary_key,
+            metric_name=self.config.metrics_context.get_primary_key(),
             metric_description=primary_spec.description,
             delta=delta,
             parent_errors=parent_errors,

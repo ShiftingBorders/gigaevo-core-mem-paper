@@ -759,7 +759,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "evolution_analysis_overview")
 
-        plt.show()
+        # plt.show()
 
         # Additional detailed plot: Comprehensive fitness timeline
         plt.figure(figsize=(16, 10))
@@ -846,7 +846,7 @@ class EvolutionFitnessAnalyzer:
                 fig2, output_folder / "comprehensive_fitness_evolution_timeline"
             )
 
-        plt.show()
+        # plt.show()
 
         # Log running statistics summary
         logger.info(f"\n📊 RUNNING STATISTICS SUMMARY (window={rolling_window}):")
@@ -934,7 +934,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "full_timeline_analysis")
 
-        plt.show()
+        # plt.show()
 
     def plot_fitness_evolution_by_iteration(
         self,
@@ -1158,7 +1158,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "evolution_analysis_by_iteration")
 
-        plt.show()
+        # plt.show()
 
         # Create detailed iteration timeline plot
         fig2, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(16, 12), sharex=True)
@@ -1240,7 +1240,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig2, output_folder / "comprehensive_fitness_evolution_by_iteration")
 
-        plt.show()
+        # plt.show()
 
         # Log iteration-based statistics summary
         logger.info(f"\n📊 ITERATION-BASED STATISTICS SUMMARY (window={iteration_rolling_window}):")
@@ -1458,7 +1458,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "program_stage_statistics")
 
-        plt.show()
+        # plt.show()
 
         # Additional detailed analysis: State statistics table
         logger.info("\n📊 PROGRAM STATE STATISTICS:")
@@ -1711,7 +1711,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "state_persistence_analysis")
 
-        plt.show()
+        # plt.show()
 
         # Additional detailed analysis
         logger.info("\n⏱️ TIME SINCE LAST UPDATE ANALYSIS:")
@@ -2137,7 +2137,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "island_statistics")
 
-        plt.show()
+        # plt.show()
 
         # Additional detailed analysis
         logger.info("\n🏝️ ISLAND STATISTICS (EVOLVING PROGRAMS):")
@@ -2428,7 +2428,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "island_statistics_by_iteration")
 
-        plt.show()
+        # plt.show()
 
         # Log iteration-based island analysis
         logger.info("\n🏝️ ITERATION-BASED ISLAND STATISTICS (EVOLVING PROGRAMS):")
@@ -2861,7 +2861,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "stage_results_statistics")
 
-        plt.show()
+        # plt.show()
 
         # Additional detailed stage analysis
         logger.info("\n📊 STAGE RESULTS ANALYSIS:")
@@ -3770,7 +3770,7 @@ class EvolutionFitnessAnalyzer:
         if save_plots:
             self._save_fig(fig, output_folder / "validity_distribution")
 
-        plt.show()
+        # plt.show()
 
         # Log detailed validity analysis
         logger.info("\n✅ PROGRAM VALIDITY ANALYSIS:")
@@ -3921,7 +3921,7 @@ class EvolutionFitnessAnalyzer:
         plt.tight_layout()
         if save_plots:
             self._save_fig(fig, output_folder / "metric_correlations")
-        plt.show()
+        # plt.show()
 
     def plot_metric_distributions(
         self,
@@ -4129,7 +4129,7 @@ class EvolutionFitnessAnalyzer:
                 self._save_fig(fig, metrics_folder / metric_filename)
                 logger.info(f"   ✅ Saved {metric_name} distribution plot")
 
-            plt.show()
+            # plt.show()
 
             # Log metric statistics
             logger.info(f"   📊 {metric_name} statistics:")
@@ -4415,7 +4415,7 @@ class EvolutionFitnessAnalyzer:
             self._save_fig(fig, metrics_folder / "all_metrics_summary")
             logger.info("✅ Saved all metrics summary plot")
 
-        plt.show()
+        # plt.show()
 
 
 async def main():

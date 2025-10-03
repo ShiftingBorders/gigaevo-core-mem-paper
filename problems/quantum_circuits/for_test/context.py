@@ -27,5 +27,5 @@ def build_context() -> list[Data]:
             n = f[file].shape[2]
             if rank*n < 500:
                 l.append(Data(file, reconcstruct_from_tensoralpha(f[file]), rank))
-
+    print(len(l))
     return l[:]

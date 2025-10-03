@@ -1,5 +1,5 @@
 - **Representation**
-  - Each component is a float vector **a** which translates to binary via sigmoid; its rank-1 tensor is the symmetric power **\(a^{\otimes d}\)**.
+  - Each component is a float vector **a** which translates to binary via sigmoid; its rank-1 tensor is the symmetric power **\(a^{{\otimes d}}\)**.
 
 - **Search Moves**
   - Use **multiple initializations** to improve exploration.

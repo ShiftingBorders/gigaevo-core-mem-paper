@@ -4,28 +4,9 @@ import jax.numpy as jnp
 from typing import List, Tuple
 
 
-def reconcstruct_from_tensoralpha(tensoralpha_res):
-    dim = 3
-    factors = [tensoralpha_res[0,:,:].T for r in range(dim)]
-    letters = ''.join(chr(97 + i) for i in range(dim))
-    spec = ','.join(f"{chr(97 + i)}r" for i in range(dim)) + f"->{letters}r"
-    and_per_r = jnp.einsum(spec, *factors, optimize=True).astype(jnp.uint8)
-    T = (jnp.sum(and_per_r, axis=-1) & jnp.uint8(1)).astype(jnp.uint8)
-    return T
-
-def reconstruct_from_factor(f: jnp.ndarray) -> jnp.ndarray:
-    return jnp.einsum("a,b,c->abc", *(f,f,f)).astype(jnp.uint8)
-
-class Data:
-    def __init__(self, name, tensor, rank):
-        self.name = name
-        self.tensor = tensor
-        self.sota_rank = rank
-
 def reconstruct_from_binary_factors(b: jnp.ndarray, dim: int=3) -> jnp.ndarray:
     letters = ''.join(chr(97 + i) for i in range(dim))
     spec = ','.join(f"{chr(97+i)}r" for i in range(dim)) + "->" + letters + "r"
-    # spec = "ar,br,cr->abcr"
     and_per_r = jnp.einsum(spec, *([b] * dim)).astype(jnp.uint8)
     return (jnp.sum(and_per_r, axis=-1) & jnp.uint8(1)).astype(jnp.uint8)
 

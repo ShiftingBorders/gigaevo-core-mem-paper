@@ -4,33 +4,30 @@ Write a Python function that finds an **exact** Waring decomposition of a **Bool
 ---
 
 ## RULES
-- **Algebra:** Work strictly in **GF(2)** — addition is **XOR**, multiplication is **AND** on `{0,1}`.
+- **Algebra:** Work strictly in **GF(2)** — addition is **XOR**, multiplication is **AND** on `{{0,1}}`.
 - **Symmetry / Degree:** Tensors are **degree 3** (order-3) and already **symmetrized**.
 - **Atoms:** Each rank-1 component is a float vector which approximate binary one via sigmoid.
 - **Decomposition:**
   \[
-    T \equiv \bigoplus_{r=1}^{R} a_r^{\otimes 3} \quad \text{over GF(2)},
+    T \equiv \bigoplus_{{r=1}}^{{R}} a_r^{{\otimes 3}} \quad \text{{over GF(2)}},
   \]
   where `⊕` is XOR. The goal is **exact reconstruction** with **minimal R**.
 - there should be balance with runtime and exactness.
 ---
 
 ## INPUT
-- `context`: a list of items, each containing:
-  - `name`: tensor identifier (e.g., a quantum circuit label),
-  - `sota_rank`: current best-known rank (for reference), this rank is no more than 50.
-  - `tensor`: a Boolean tensor of shape `(n, n, n)` (dtype `uint8` or `bool`), already symmetrized.
-  These tensors correspond to quantum-circuit instances (per the AlphaTensor-Quantum setting).
-- Optional global parameters:
-  - `n`: dimension of the base vector space (inferable from `tensor.shape[0]`), 
-  - `d`: tensor order (default `d = 3`; keep consistent with symmetry).
+- `context`: a list of Data: List[Data]:
+class Data:
+  name: str
+  sota_rank: int
+  tensor: jnp.array
 
 ---
 
 ## OUTPUT
 For each item in `context`, return a dictionary:
-{
+{{
   "name": str,
   "rank": int,          # minimal rank found
   "residual": int,      # Hamming errors after reconstruction (must be 0 for exact)
-}
+}}
