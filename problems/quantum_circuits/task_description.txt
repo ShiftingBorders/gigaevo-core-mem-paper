@@ -16,7 +16,7 @@ Write a Python function that finds an **exact** Waring decomposition of a **Bool
 ---
 
 ## INPUT
-- `context`: a list of Data: List[Data]:
+- context: List[Data]:
 class Data:
   name: str
   sota_rank: int
@@ -27,7 +27,8 @@ class Data:
 ## OUTPUT
 For each item in `context`, return a dictionary:
 {{
-  "name": str,
-  "rank": int,          # minimal rank found
+  "rank": int,    # minimal rank found
   "residual": int,      # Hamming errors after reconstruction (must be 0 for exact)
+  "factors": jnp.array 
+  "steps": steps_used
 }}

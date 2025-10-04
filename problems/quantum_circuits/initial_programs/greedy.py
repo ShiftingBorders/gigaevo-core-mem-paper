@@ -27,15 +27,15 @@ def entrypoint(context: List[Data]) -> List[Dict[str, Any]]:
         key = jax.random.PRNGKey(seed)
         R = jnp.array(T)
         decomposed: List[List[jnp.ndarray]] = []
-        # cur = float(get_residual_num(R, jnp.zeros(R.shape, dtype=jnp.uint8))) if hasattr(get_residual_num, "__call__") else float(jnp.linalg.norm(R))
         cur = 1
+        # cur = 1
         for _ in range(max_rank):
             key, best, sc = _choose_best(key, R, samples)
             if best is None or cur < tol: break
             R = R - reconstruct_from_factor(best)
             decomposed.append(best); cur = sc
             if cur < tol: break
-        return {"rank": len(decomposed), "residual": cur, "factors": jnp.array(decomposed, dtype=jnp.uint8).T, "steps": max_rank * samples}
+        return {"rank": len(decomposed), "residual": get_residual_num(R), "factors": jnp.array(decomposed, dtype=jnp.uint8).T, "steps": max_rank * samples}
 
     out = []
     for i, item in enumerate(context):

@@ -11,28 +11,20 @@ METRICS INFO
 {metrics_description}
 
 REQUIRED FUNCTION  
-def entrypoint(context: list[dict]) -> list[dict]  
-# → For each item, return dict("name": str, "rank": int, "residual": int).
-# Verification is implied: residual == 0 ⇔ exact.
+def entrypoint(context: list[Data]) -> list[dict]  
 
 # HELPER FUNCTIONS AVAILABLE IN helper.py:
-def reconstruct_from_binary_factors(b: jnp.ndarray, dim: int=3) -> jnp.ndarray
+def reconstruct_from_binary_factors(b: jnp.ndarray) -> jnp.ndarray
   return: the target tensor n^{{\otimes d}} from decomposition  
-def get_residual_num(T1: jnp.ndarray, T2: jnp.ndarray) -> int:
+def get_residual_num(T1: jnp.ndarray, T2: jnp.ndarray=None) -> int:
   Compute the GF(2) Hamming distance (number of mismatched entries).
+def reconstruct_from_factor(f: jnp.ndarray) -> jnp.ndarray:
+  
 
 CONSTRAINTS  
 - Algebra: **GF(2)** (XOR add, AND multiply).  
 - Symmetric tensors (default **d=3**): atoms are binary vectors `a∈{{0,1}}^n`; rank-1 term is `a^{{\\otimes d}}` (same `a` across modes).  
 - Reproducibility: derive RNG keys deterministically (e.g., fold_in with `(rank, restart)`).
-
-INPUT (context item)  
-`List[Data], where
-class Data:
-  name: str
-  sota_rank: int
-  tensor: jnp.array
-`
 
 🚫 REMINDER  
 Return **exact GF(2)** decompositions whenever possible (residual=0) and drive the **rank** as low as you can.

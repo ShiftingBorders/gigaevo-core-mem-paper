@@ -79,7 +79,7 @@ def entrypoint(context: List[Data]) -> List[Dict[str, Any]]:
                 F, used = run_steps(F0, per_rank_steps)
                 steps_used += int(used)
                 binF = to_binary_factors(F)
-                T_hat = reconstruct_from_binary_factors(binF, DIM)
+                T_hat = reconstruct_from_binary_factors(binF)
                 residual = get_residual_num(T, T_hat)
                 if (residual < best["residual"]) or (residual == best["residual"] and (best["rank"] is None or r < best["rank"])):
                     best = {"rank": r, "residual": int(residual), "factors": binF, "steps": steps_used}
