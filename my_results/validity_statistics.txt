@@ -1,0 +1,17 @@
+Program Validity Distribution Analysis
+==================================================
+
+OVERALL STATISTICS:
+  Total programs: 2
+
+  Valid for Analysis: 2 (100.0%)
+
+SUCCESS RATES:
+  Has Any Fitness: 100.0%
+  Not Failure (-1000): 100.0%
+  Basic Valid: 100.0%
+  Analysis Valid: 100.0%
+  Completed State: 0.0%
+
+VALIDITY BY STATE:
+  evolving: 2/2 valid (100.0%)

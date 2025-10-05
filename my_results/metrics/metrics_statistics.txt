@@ -1,0 +1,29 @@
+Metrics Distribution Analysis
+==================================================
+
+
+FITNESS:
+  Count: 2
+  Mean: 34.2870
+  Median: 34.2870
+  Std Dev: 2.2528
+  Min: 32.6940
+  Max: 35.8800
+  Q1 (25%): 33.4905
+  Q3 (75%): 35.0835
+  IQR: 1.5930
+  Skewness: nan
+  Kurtosis: nan
+
+IS_VALID:
+  Count: 2
+  Mean: 1.0000
+  Median: 1.0000
+  Std Dev: 0.0000
+  Min: 1.0000
+  Max: 1.0000
+  Q1 (25%): 1.0000
+  Q3 (75%): 1.0000
+  IQR: 0.0000
+  Skewness: nan
+  Kurtosis: nan
