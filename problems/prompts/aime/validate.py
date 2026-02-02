@@ -1,8 +1,6 @@
-import re
 from typing import List, Union
 from statistics import mean
 
-import numpy as np
 import pandas as pd
 
 from problems.prompts.client import LLMClient
@@ -36,18 +34,18 @@ def calculate_fitness(
     """Calculate Accuracy."""
     accuracy = []
     for pred, target in zip(preds, data[target_field].tolist()):
+        target = str(target)
         if pred is None:
             accuracy.append(0)
-
+            continue
         try:
             pred = strip_string(pred)
             target = strip_string(target)
-
             accuracy.append(pred == target)
         except:
             accuracy.append(pred == target)
 
-    return np.mean(accuracy)
+    return mean(accuracy)
 
 
 def validate(prompt_template: str):
@@ -60,7 +58,7 @@ def validate(prompt_template: str):
         dict: Metrics including fitness, avg_extraction_failures, avg_cost_utilization, is_valid
     """
     # 1. Load dataset context
-    context = load_context(years=(2023, 2024), n_trials=2)
+    context = load_context(years=(2023, 2024), n_trials=3)
 
     # 2. Validate template structure
     validate_prompt_template(
@@ -84,7 +82,6 @@ def validate(prompt_template: str):
     raw_responses = results["predictions"]  # Raw LLM response strings
     predictions = [extract_answer(r) for r in raw_responses]
 
-    call_logs = results["call_logs"]
     dataset = context["train_dataset"]
 
     # 6. Extraction failures: predictions that failed to parse (None)
@@ -94,17 +91,11 @@ def validate(prompt_template: str):
         else 0.0
     )
 
-    # 7. Cost utilization: average across samples
-    avg_cost_utilization = (
-        mean(log.cost_utilization for log in call_logs) if call_logs else 0.0
-    )
-
-    # 8. Main objective: average ROC-AUC on the dataset (higher is better)
+    # 7. Main objective
     fitness = calculate_fitness(dataset, predictions, context["target_field"])
 
     return {
         "fitness": fitness,
         "avg_extraction_failures": extraction_failures,
-        "avg_cost_utilization": avg_cost_utilization,
         "is_valid": 1,
     }

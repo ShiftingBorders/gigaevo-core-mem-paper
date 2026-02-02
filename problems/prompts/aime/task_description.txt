@@ -12,9 +12,8 @@ Consider the next guidelines:
 - Constraints: output schema, formatting rules
 2) Implementation details:
 - Use Python format string with placeholders syntax
-- Placeholders will be filled from dataset sample fields presented below
+- Placeholders will be filled ONLY from dataset sample fields presented below
 - Return the template string from entrypoint()
-- The cost of an LLM call should not exceed $1.00
 
 TASK DEFINITION – MATH OLYMPIAD PROBLEM SOLVING
 
@@ -23,11 +22,11 @@ Challenge: Design prompt templates that maximize accuracy on math olympiad-level
 OBJECTIVE
 Return a prompt template guiding the downstream LLM to solve math olympiad problems such that:
  1) All required placeholders are explicitly referenced as placeholders within prompt template
- 2) A prompt template guides the LLM through rigorous mathematical reasoning
+ 2) A prompt template guides the LLM through rigorous mathematical reasoning to obtain the correct answer
  3) Returns a clear, parseable integer answer (0-999)
  4) Maximizes accuracy on math problems
 
-Output: '\boxed{NNN}' (extractable by regex) | Goal: Accuracy > 0.5
+Output: '\\boxed{{NNN}}' (extractable by regex) | Goal: Accuracy > 0.3
 
 LLM CHARACTERISTICS
 - Model with basic mathematical reasoning capabilities
@@ -38,21 +37,19 @@ Available input fields:
 
 CONSTRAINTS
 - Input field `problem` MUST be explicitly referenced as a placeholder within the prompt template (1 or more times); it will be automatically substituted at runtime
-- Output must follow required '\boxed{NNN}' format (extractable by regex)
-- Stay within cost budget
+- Output must follow required '\\boxed{{NNN}}' format (extractable by regex)
+- Curly braces MUST be escaped by doubling them since the template uses Python format strings
 
 FAILURE MODES
 - Missing required placeholder (`problem`)
+- Unescaped curly braces (e.g., '\\boxed{answer}' instead of '\\boxed{{answer}}')
 - Incorrect output format
-- Exceeding cost budget
 
 OUTPUT FORMAT
 Implement `def entrypoint()` that returns:
 - A prompt template python string with placeholders
 - The template will be formatted with sample fields and sent to an LLM
-- LLM return format: '\boxed{NNN}' (extractable by regex, integer 0-999)
+- LLM return format: '\\boxed{{NNN}}' (extractable by regex, integer 0-999)
 
 TASK HINTS
-- Problems span algebra, geometry, number theory, combinatorics, and probability
-- Multi-step reasoning and careful calculation are essential
-- Chain-of-thought prompting may help with complex multi-step problems
+- Problems span algebra, geometry, combinatorics, number theory, and probability
