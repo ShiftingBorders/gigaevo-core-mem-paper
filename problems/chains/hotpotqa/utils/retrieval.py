@@ -170,12 +170,47 @@ def retrieve(
     return "\n".join(f"[{i + 1}] {p}" for i, p in enumerate(retrieved))
 
 
+def batch_retrieve(
+    queries: list[str],
+    index_dir: str | Path,
+    k: int = 7,
+    corpus_path: str | Path | None = None,
+) -> list[str]:
+    """Batch-retrieve top-k passages for all queries at once.
+
+    Vectorized tokenization + single retriever call — much faster than
+    N individual retrieve() calls.
+
+    Args:
+        queries: List of search query strings
+        index_dir: Path to saved bm25s index directory
+        k: Number of passages to retrieve per query
+        corpus_path: Path to corpus JSONL for loading formatted passages
+
+    Returns:
+        List of formatted passage strings (one per query)
+    """
+    _ensure_initialized(index_dir, corpus_path)
+
+    tokens = bm25s.tokenize(
+        queries, stopwords="en", stemmer=_stemmer, show_progress=False
+    )
+    results, _scores = _retriever.retrieve(
+        tokens, k=k, n_threads=4, show_progress=False
+    )
+
+    return [
+        "\n".join(f"[{j + 1}] {_corpus[int(idx)]}" for j, idx in enumerate(row[:k]))
+        for row in results
+    ]
+
+
 def make_retrieve_fn(
     index_dir: str | Path,
     k: int = 7,
     corpus_path: str | Path | None = None,
-) -> Callable[..., str]:
-    """Create a retrieve function for the tool registry.
+) -> Callable[[list[dict]], list[str]]:
+    """Create a batched retrieve function for the tool registry.
 
     Args:
         index_dir: Path to saved bm25s index directory
@@ -183,10 +218,12 @@ def make_retrieve_fn(
         corpus_path: Path to corpus JSONL for auto-build (optional)
 
     Returns:
-        Function with signature (query: str) -> str
+        Function with signature (items: list[dict]) -> list[str]
+        Each dict must have a "query" key.
     """
 
-    def retrieve_fn(query: str) -> str:
-        return retrieve(query, index_dir, k=k, corpus_path=corpus_path)
+    def retrieve_fn(items: list[dict]) -> list[str]:
+        queries = [item["query"] for item in items]
+        return batch_retrieve(queries, index_dir, k=k, corpus_path=corpus_path)
 
     return retrieve_fn
