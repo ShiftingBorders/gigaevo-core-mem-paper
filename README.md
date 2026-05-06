@@ -1,4 +1,4 @@
-# EvoMem
+# EvoMem: Memory-Augmented Evolution for Code Optimization
 
 [Python 3.12+](https://www.python.org/downloads/)
 [License: MIT](https://opensource.org/licenses/MIT)
