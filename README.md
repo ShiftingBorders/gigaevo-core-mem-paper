@@ -1,4 +1,4 @@
-# GigaEvo
+# EvoMem
 
 [Python 3.12+](https://www.python.org/downloads/)
 [License: MIT](https://opensource.org/licenses/MIT)
@@ -91,7 +91,7 @@ Evolution starts immediately. Logs are saved to `outputs/`.
 
 1. **Load initial programs** from `problems/<name>/initial_programs/`
 2. **Mutate programs** using LLMs (GPT, Claude, Gemini, Qwen, etc.),
-   optionally conditioned on memory cards
+  optionally conditioned on memory cards
 3. **Evaluate fitness** by running each program's `entrypoint()` + `validate()`
 4. **Select solutions** using MAP-Elites across a behavior space
 5. **Track ideas** and optionally write deduplicated memory cards
