@@ -5,8 +5,9 @@ execution uses passage-in-context (no external retrieval tools).
 """
 
 import json
-from pathlib import Path
+import os
 import random
+from pathlib import Path
 
 from problems.chains.musique.utils.passages import select_passages
 
@@ -27,7 +28,8 @@ LLM_CONFIG = {
         },
     },
     "client_kwargs": {
-        "api_key": "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",
+        "api_key": os.environ.get("OPENAI_API_KEY")
+        or os.environ.get("PROMPT_API_KEY"),
         "base_url": "https://openrouter.ai/api/v1",
     },
 }

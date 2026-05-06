@@ -17,4 +17,4 @@ Evolve a Python function `entrypoint(context) -> str` that generates a **stunnin
 - Must contain `<html` and be > 500 chars
 - External JS libraries (Chart.js, D3.js, Plotly.js, etc.) are **allowed via CDN** for better charts
 
-**GOAL**: Make it beautiful, information-dense, and immediately useful to an AI researcher. AIRI brand: bg `#161C27`, teal `#2FBEAD`, coral `#E5434D`, cream `#F2EEE9`.
+**GOAL**: Make it beautiful, information-dense, and immediately useful to an AI researcher. Use this anonymous review palette: bg `#161C27`, teal `#2FBEAD`, coral `#E5434D`, cream `#F2EEE9`.

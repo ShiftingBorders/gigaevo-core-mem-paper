@@ -11,7 +11,7 @@ PYTHONPATH=. $GIGAEVO_PYTHON tools/<tool>.py ...
 Shell scripts use `$GIGAEVO_PYTHON` (falls back to `python3`):
 
 ```bash
-export GIGAEVO_PYTHON=/home/jovyan/.mlspace/envs/evo/bin/python3  # adjust for your environment
+export GIGAEVO_PYTHON=${GIGAEVO_PYTHON:-python3}
 ```
 
 **Run format** (all operational and analysis tools): `prefix@db[:label]`
@@ -171,7 +171,7 @@ Each experiment has `experiments/<task>/<name>/run_test_eval.sh`. Run it while R
 the held-out test set and writes results to `test_evals/results.json`.
 
 ```bash
-export GIGAEVO_PYTHON=/home/jovyan/.mlspace/envs/evo/bin/python3  # adjust for your environment
+export GIGAEVO_PYTHON=${GIGAEVO_PYTHON:-python3}
 bash experiments/hotpotqa/push/run_test_eval.sh
 ```
 

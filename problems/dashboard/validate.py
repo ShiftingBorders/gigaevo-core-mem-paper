@@ -140,7 +140,7 @@ Score on exactly these 5 dimensions (0–10 each). Use the FULL range — do NOT
    0–2: Ugly. Raw HTML table aesthetic, mismatched colors, no visual polish.
    3–4: Basic. Dark background ticked, but flat, boring, like a default Bootstrap theme.
    5–6: Acceptable. Consistent color usage, readable, but nothing special.
-   7:   Good. Clear AIRI brand colors (#2FBEAD teal, #E5434D coral, #161C27 bg), clean layout, pleasing.
+   7:   Good. Clear palette usage (#2FBEAD teal, #E5434D coral, #161C27 bg), clean layout, pleasing.
    8:   Impressive. Depth through layering, subtle gradients, beautiful typography, polished spacing.
    9:   Stunning. Feels like a premium product — glows, layered shadows, micro-detail, pixel-perfect.
    10:  Museum-worthy. Every pixel intentional. Rivals the best commercial monitoring tools (Grafana+).

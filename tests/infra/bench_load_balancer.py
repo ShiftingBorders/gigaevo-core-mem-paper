@@ -7,12 +7,12 @@ experiments/infrastructure.yaml or specified via environment variables.
 
 Usage:
     # Auto-discover from infrastructure.yaml:
-    PYTHONPATH=. /home/jovyan/envs/evo_fast/bin/python tests/infra/bench_load_balancer.py
+    PYTHONPATH=. ${GIGAEVO_PYTHON:-python} tests/infra/bench_load_balancer.py
 
     # Explicit endpoints (comma-separated):
     LLM_ENDPOINTS=http://host1:8777/v1,http://host2:8777/v1 \\
     CHAIN_ENDPOINTS=http://host3:8001/v1,http://host4:8001/v1 \\
-    PYTHONPATH=. /home/jovyan/envs/evo_fast/bin/python tests/infra/bench_load_balancer.py
+    PYTHONPATH=. ${GIGAEVO_PYTHON:-python} tests/infra/bench_load_balancer.py
 
     # Control concurrency:
     N_RUNS=2 MUTANTS_PER_RUN=4 ... bench_load_balancer.py

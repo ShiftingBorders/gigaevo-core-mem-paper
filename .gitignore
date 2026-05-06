@@ -132,7 +132,9 @@ celerybeat.pid
 
 # Environments
 .env
-.venv
+.env.*
+!.env.example
+.venv/
 env/
 venv/
 ENV/
@@ -652,3 +654,9 @@ check_openrouter_key.py
 experiments.txt
 AlgoTune-main/
 .env
+
+# Anonymous review artifact exclusions
+outputs/
+gigaevo/memory/ideas_tracker/logs/
+__pycache__/
+gigaevo.egg-info/

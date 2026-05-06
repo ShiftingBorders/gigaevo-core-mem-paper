@@ -1,7 +1,7 @@
 """Build BM25s index over wiki17_abstracts for HotpotQA retrieval.
 
 Run once after downloading the corpus (download_corpus.py):
-    PYTHONPATH=. /home/jovyan/envs/evo_fast/bin/python \
+    PYTHONPATH=. ${GIGAEVO_PYTHON:-python} \
         problems/chains/hotpotqa/dataset/build_bm25_index.py
 """
 

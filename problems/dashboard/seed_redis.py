@@ -4,7 +4,7 @@ Populates db=14 with 4 realistic GigaEvo runs, each with programs,
 metrics history, archive (1D, 150 bins), run_state, and lineage.
 
 Usage:
-    PYTHONPATH=. /home/jovyan/envs/evo_fast/bin/python problems/dashboard/seed_redis.py
+    PYTHONPATH=. ${GIGAEVO_PYTHON:-python} problems/dashboard/seed_redis.py
 """
 
 from __future__ import annotations

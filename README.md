@@ -1,8 +1,8 @@
 # GigaEvo
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[Python 3.12+](https://www.python.org/downloads/)
+[License: MIT](https://opensource.org/licenses/MIT)
+[Ruff](https://github.com/astral-sh/ruff)
 
 Evolutionary algorithm framework that uses Large Language Models to automatically
 improve programs through iterative mutation and selection (MAP-Elites). Programs
@@ -11,7 +11,7 @@ and supports single runs, multi-island evolution, and prompt co-evolution.
 
 ## Demo
 
-![Demo](./docs/demos/demo-opt.gif)
+Demo
 
 ## Getting Started
 
@@ -20,15 +20,17 @@ and supports single runs, multi-island evolution, and prompt co-evolution.
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [DAG System](docs/DAG_SYSTEM.md) | Execution engine: stages, dependencies, caching |
-| [Evolution Strategies](docs/EVOLUTION_STRATEGIES.md) | MAP-Elites, multi-island, migration |
-| [Prompt Co-Evolution](docs/COEVOLUTION.md) | Co-evolve mutation prompts alongside programs |
-| [Tools](tools/README.md) | Analysis, debugging, and problem scaffolding utilities |
-| [Usage Guide](docs/USAGE.md) | Detailed usage and Hydra configuration |
-| [Contributing](docs/CONTRIBUTING.md) | Guidelines for contributors |
-| [Changelog](CHANGELOG.md) | Version history |
+
+| Guide                                                | Description                                            |
+| ---------------------------------------------------- | ------------------------------------------------------ |
+| [DAG System](docs/DAG_SYSTEM.md)                     | Execution engine: stages, dependencies, caching        |
+| [Evolution Strategies](docs/EVOLUTION_STRATEGIES.md) | MAP-Elites, multi-island, migration                    |
+| [Prompt Co-Evolution](docs/COEVOLUTION.md)           | Co-evolve mutation prompts alongside programs          |
+| [Tools](tools/README.md)                             | Analysis, debugging, and problem scaffolding utilities |
+| [Usage Guide](docs/USAGE.md)                         | Detailed usage and Hydra configuration                 |
+| [Contributing](docs/CONTRIBUTING.md)                 | Guidelines for contributors                            |
+| [Changelog](CHANGELOG.md)                            | Version history                                        |
+
 
 ## Quick Start
 
@@ -167,18 +169,21 @@ launch instructions, and monitoring.
 GigaEvo uses [Hydra](https://hydra.cc/) for modular configuration. All config
 files are in `config/`:
 
-| Directory | Purpose | Key files |
-|-----------|---------|-----------|
-| `experiment/` | Complete experiment templates | `base.yaml`, `steady_state.yaml`, `migration_bus.yaml`, `prompt_coevolution.yaml`, `steady_state_bus.yaml` |
-| `algorithm/` | Evolution algorithms | `single_island.yaml`, `multi_island.yaml` |
-| `llm/` | LLM setups | `single.yaml`, `heterogeneous.yaml` |
-| `pipeline/` | DAG execution pipelines | `standard.yaml`, `with_context.yaml`, `prompt_evolution.yaml` |
-| `prompt_fetcher/` | Prompt sourcing | `fixed.yaml`, `coevolved.yaml` |
-| `constants/` | Tunable parameters | `evolution.yaml`, `llm.yaml`, `islands.yaml`, `pipeline.yaml` |
-| `loader/` | Program loading | `directory.yaml`, `redis_selection.yaml` |
-| `logging/` | Backends | `tensorboard.yaml`, `wandb.yaml` |
+
+| Directory         | Purpose                       | Key files                                                                                                  |
+| ----------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `experiment/`     | Complete experiment templates | `base.yaml`, `steady_state.yaml`, `migration_bus.yaml`, `prompt_coevolution.yaml`, `steady_state_bus.yaml` |
+| `algorithm/`      | Evolution algorithms          | `single_island.yaml`, `multi_island.yaml`                                                                  |
+| `llm/`            | LLM setups                    | `single.yaml`, `heterogeneous.yaml`                                                                        |
+| `pipeline/`       | DAG execution pipelines       | `standard.yaml`, `with_context.yaml`, `prompt_evolution.yaml`                                              |
+| `prompt_fetcher/` | Prompt sourcing               | `fixed.yaml`, `coevolved.yaml`                                                                             |
+| `constants/`      | Tunable parameters            | `evolution.yaml`, `llm.yaml`, `islands.yaml`, `pipeline.yaml`                                              |
+| `loader/`         | Program loading               | `directory.yaml`, `redis_selection.yaml`                                                                   |
+| `logging/`        | Backends                      | `tensorboard.yaml`, `wandb.yaml`                                                                           |
+
 
 Override any setting via command line:
+
 ```bash
 python run.py experiment=full_featured max_generations=50 temperature=0.8
 ```
@@ -186,7 +191,7 @@ python run.py experiment=full_featured max_generations=50 temperature=0.8
 ## Creating a Problem
 
 1. Create a directory under `problems/`:
-   ```
+  ```
    problems/my_problem/
    ├── validate.py           # Fitness evaluation
    ├── metrics.yaml          # Metric specifications
@@ -194,12 +199,11 @@ python run.py experiment=full_featured max_generations=50 temperature=0.8
    └── initial_programs/     # Seed programs
        ├── strategy1.py      # Must define entrypoint()
        └── strategy2.py
-   ```
-
+  ```
 2. Run:
-   ```bash
+  ```bash
    python run.py problem.name=my_problem
-   ```
+  ```
 
 Or use the wizard: `python -m tools.wizard config.yaml`
 
@@ -208,21 +212,24 @@ See `problems/heilbron/` for a complete example.
 ## Output
 
 Results are saved to `outputs/YYYY-MM-DD/HH-MM-SS/`:
+
 - **Logs**: `evolution_*.log`
 - **Programs**: Stored in Redis (export with `tools/redis2pd.py`)
 - **Metrics**: TensorBoard / W&B (if configured)
 
 ## Tools
 
-| Tool | Purpose |
-|------|---------|
-| `tools/redis2pd.py` | Export evolution data to CSV/DataFrame |
-| `tools/comparison.py` | Compare runs with fitness curve plots |
-| `tools/top_programs.py` | Extract best programs from archive |
-| `tools/flush.py` | Safely flush Redis DBs (kills workers first) |
-| `tools/experiment/archive_run.sh` | Archive run data before flush |
-| `tools/dag_builder/` | Visual DAG pipeline designer |
-| `tools/wizard/` | Interactive problem scaffolding |
+
+| Tool                              | Purpose                                      |
+| --------------------------------- | -------------------------------------------- |
+| `tools/redis2pd.py`               | Export evolution data to CSV/DataFrame       |
+| `tools/comparison.py`             | Compare runs with fitness curve plots        |
+| `tools/top_programs.py`           | Extract best programs from archive           |
+| `tools/flush.py`                  | Safely flush Redis DBs (kills workers first) |
+| `tools/experiment/archive_run.sh` | Archive run data before flush                |
+| `tools/dag_builder/`              | Visual DAG pipeline designer                 |
+| `tools/wizard/`                   | Interactive problem scaffolding              |
+
 
 See [tools/README.md](tools/README.md) for full documentation and Redis key schema.
 
@@ -246,6 +253,7 @@ ruff check . && ruff format --check .
 ## Troubleshooting
 
 **Redis database not empty:**
+
 ```bash
 # Use tools/flush.py (kills exec_runner workers first):
 PYTHONPATH=. python tools/flush.py --db 0 --confirm
@@ -255,6 +263,7 @@ python run.py redis.db=1
 ```
 
 **LLM connection issues:**
+
 ```bash
 # Verify API key
 echo $OPENAI_API_KEY
@@ -269,14 +278,4 @@ MIT License — see [LICENSE](LICENSE).
 
 ## Citation
 
-```bibtex
-@misc{khrulkov2025gigaevoopensourceoptimization,
-      title={GigaEvo: An Open Source Optimization Framework Powered By LLMs And Evolution Algorithms},
-      author={Valentin Khrulkov and Andrey Galichin and Denis Bashkirov and Dmitry Vinichenko and Oleg Travkin and Roman Alferov and Andrey Kuznetsov and Ivan Oseledets},
-      year={2025},
-      eprint={2511.17592},
-      archivePrefix={arXiv},
-      primaryClass={cs.NE},
-      url={https://arxiv.org/abs/2511.17592},
-}
-```
+Citation information is withheld for anonymous review.

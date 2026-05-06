@@ -8,7 +8,7 @@ Strong visual foundation:
 - Top-5 programs table with syntax-highlighted code preview
 - Genealogy tree
 - Stagnation pulse animation
-- AIRI brand colors throughout
+- Consistent project palette throughout
 
 No external CDN. All canvas/CSS inline.
 """

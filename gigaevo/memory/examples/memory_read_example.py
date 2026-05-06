@@ -49,7 +49,7 @@ SETTINGS = load_settings(SETTINGS_PATH)
 MEMORY_DIR = resolve_local_path(
     THIS_DIR,
     deep_get(SETTINGS, "paths.checkpoint_dir"),
-    default_relative="memory_usage_store/api_exp4",
+    default_relative="memory_usage_store/default",
 )
 MEMORY_API_URL = os.getenv(
     "MEMORY_API_URL",
@@ -57,7 +57,7 @@ MEMORY_API_URL = os.getenv(
 )
 NAMESPACE = os.getenv(
     "MEMORY_NAMESPACE",
-    to_str(deep_get(SETTINGS, "api.namespace"), default="exp6"),
+    to_str(deep_get(SETTINGS, "api.namespace"), default="default"),
 )
 USE_API = to_bool(
     os.getenv("MEMORY_USE_API"),

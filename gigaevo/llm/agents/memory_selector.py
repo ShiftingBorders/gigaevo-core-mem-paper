@@ -93,7 +93,7 @@ class MemorySelectorAgent:
                 else resolve_local_path(
                     memory_api_root,
                     deep_get(settings, "paths.checkpoint_dir"),
-                    default_relative="memory_usage_store/api_exp4",
+                    default_relative="memory_usage_store/default",
                 )
             )
             memory_api_url = os.getenv(

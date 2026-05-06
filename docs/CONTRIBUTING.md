@@ -105,4 +105,4 @@ Before creating a PR, ensure that:
 
 ## Contributors
 
-See the [Citation section in README.md](../README.md#citation) for the full author list.
+Contributor details are withheld in the anonymous review artifact.

@@ -7,7 +7,7 @@ name = "gigaevo"
 version = "1.28.0"
 description = "Advanced evolutionary computation framework with MAP-Elites and DAG-based program execution"
 authors = [
-    {name = "GigaEvo Team", email = "team@gigaevo.ai"}
+    {name = "Anonymous"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -73,12 +73,6 @@ test = [
     "pytest-timeout>=2.4",
     "fakeredis[lua]>=2.19.0",
 ]
-
-[project.urls]
-Repository = "https://github.com/gigaevo/gigaevo"
-Documentation = "https://gigaevo.readthedocs.io"
-Issues = "https://github.com/gigaevo/gigaevo/issues"
-Changelog = "https://github.com/gigaevo/gigaevo/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["gigaevo*"]

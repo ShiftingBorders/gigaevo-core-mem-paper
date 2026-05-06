@@ -290,10 +290,10 @@ need to edit this for normal experiments.
 paths:
   # Default local directory for memory card storage.
   # Overridden by SelectorMemoryProvider's checkpoint_dir param.
-  checkpoint_dir: memory_usage_store/api_exp4
+  checkpoint_dir: memory_usage_store/default
 
   # Path to ideas_tracker output banks (used by ideas_tracker CLI).
-  banks_dir: ../gigaevo/memory/ideas_tracker/logs/2026-02-19_19-51-02
+  banks_dir: ../gigaevo/memory/ideas_tracker/logs/example_run
 
 # ═══════════════════════════════════════════════
 # API Connection
@@ -304,7 +304,7 @@ api:
 
   # Default namespace for card isolation.
   # Overridden by SelectorMemoryProvider's namespace param.
-  namespace: exp9
+  namespace: default
 
   # true = use remote API service for memory storage/search
   # false = use local disk only (no network calls)
@@ -801,7 +801,7 @@ ranking, deduplication, and usage tracking.
 The Ideas Tracker writes detailed logs to a timestamped directory:
 
 ```
-ideas_tracker/logs/2026-04-03_14-30-00/
+ideas_tracker/logs/<timestamp>/
   active_ideas.json        # Current active idea bank (final state)
   inactive_ideas.json      # Ideas moved to inactive bank
   programs_processed.json  # All ProgramRecord dicts

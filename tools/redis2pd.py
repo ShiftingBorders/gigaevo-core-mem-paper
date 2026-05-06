@@ -1,6 +1,3 @@
-import sys
-
-sys.path.append("../gigaevo-core-internal")
 import argparse
 import asyncio
 import json

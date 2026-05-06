@@ -43,3 +43,4 @@ python run.py \
 
 - If `memory_enabled=true`, `checkpoint_dir` is used as `paths.checkpoint_dir` for the memory GAM backend during the run (this is where it reads/updates checkpointed memory state).
 - If `ideas_tracker=true` and `ideas_tracker.memory_write_pipeline.enabled=true`, the same `checkpoint_dir` is used by ideas tracker final write step to store cards into memory DB pipeline.
+

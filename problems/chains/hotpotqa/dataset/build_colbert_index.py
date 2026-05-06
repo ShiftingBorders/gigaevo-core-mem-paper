@@ -1,7 +1,7 @@
 """Build a ColBERT index over wiki17_abstracts for HotpotQA retrieval.
 
 Run once before using RETRIEVER = "colbert" in shared_config.py:
-    PYTHONPATH=. /home/jovyan/envs/evo_fast/bin/python \
+    PYTHONPATH=. ${GIGAEVO_PYTHON:-python} \
         problems/chains/hotpotqa/dataset/build_colbert_index.py
 
 Requirements:

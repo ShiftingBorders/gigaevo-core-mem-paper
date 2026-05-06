@@ -1,11 +1,11 @@
-# Running `gigaevo-core-internal` With `memory_platform`
+# Running GigaEvo With `memory_platform`
 
-This is the current end-to-end flow for using `gigaevo-memory` as the backend for:
+This is the end-to-end flow for using `gigaevo-memory` as the backend for:
 
 - runtime retrieval with `memory_enabled=true`
 - final ideas-tracker memory write with `ideas_tracker=true`
 
-When `api.use_api: true`, `gigaevo-core-internal` automatically uses `gigaevo.memory_platform`.
+When `api.use_api: true`, GigaEvo uses `gigaevo.memory_platform`.
 
 ## What is used now
 
@@ -35,19 +35,21 @@ docker run -d --name gigaevo-memory-redis \
 
 ## 2. Start `gigaevo-memory`
 
-Use a Python 3.12 env for `gigaevo-memory`.
+Use a Python 3.12 environment for `gigaevo-memory`.
 
 ```bash
+export MEMORY_SERVICE_ROOT=/path/to/gigaevo-memory
+
 conda create -n gigaevo-memory python=3.12 -y
 conda activate gigaevo-memory
 
-cd /home/petranokhin/projects/gigaevo_memory/gigaevo-memory
+cd "$MEMORY_SERVICE_ROOT"
 python -m pip install --upgrade pip
 python -m pip install -e ./api
 python -m pip install sentence-transformers
 ```
 
-Export backend env vars:
+Export backend environment variables:
 
 ```bash
 export POSTGRES_DSN='postgresql+asyncpg://gigaevo:gigaevo@localhost:5432/gigaevo'
@@ -60,7 +62,7 @@ export EMBEDDING_MODEL=all-MiniLM-L6-v2
 Run migrations and start the API:
 
 ```bash
-cd /home/petranokhin/projects/gigaevo_memory/gigaevo-memory/api
+cd "$MEMORY_SERVICE_ROOT/api"
 alembic -c app/db/alembic.ini upgrade head
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
@@ -71,15 +73,15 @@ Health check:
 curl http://localhost:8000/health
 ```
 
-## 3. Configure `gigaevo-core-internal`
+## 3. Configure GigaEvo
 
-In [config/memory.yaml](/home/petranokhin/projects/gigaevo_memory/gigaevo-core-internal/config/memory.yaml), set:
+In `config/memory_backend.yaml`, set:
 
 ```yaml
 api:
   base_url: http://localhost:8000
   use_api: true
-  namespace: exp9
+  namespace: review_bank
   channel: latest
 ```
 
@@ -91,39 +93,41 @@ ideas_tracker:
     enabled: true
 ```
 
-## 4. Run core
+## 4. Run GigaEvo
 
-Use your normal `gigaevo-core-internal` env.
+Use your normal GigaEvo environment.
 
-If `gigaevo_memory` is not installed in that env, install the lightweight client:
+If `gigaevo_memory` is not installed in that environment, install the lightweight client:
 
 ```bash
-python -m pip install -e /home/petranokhin/projects/gigaevo_memory/gigaevo-memory/client/python
+python -m pip install -e "$MEMORY_SERVICE_ROOT/client/python"
 ```
 
 Then run:
 
 ```bash
-conda activate <your-gigaevo-core-env>
-cd /home/petranokhin/projects/gigaevo_memory/gigaevo-core-internal
+export REPO_ROOT=/path/to/gigaevo
+
+conda activate <your-gigaevo-env>
+cd "$REPO_ROOT"
 
 export MEMORY_API_URL=http://localhost:8000
-python run.py problem.name=heilbron memory_enabled=true ideas_tracker=true namespace=exp9 redis.db=1
+python run.py problem.name=heilbron memory_enabled=true ideas_tracker=true namespace=review_bank redis.db=1
 ```
 
 Notes:
 
-- `namespace=exp9` selects the remote memory bank to read/write
+- `namespace=review_bank` selects the remote memory bank to read/write
 - `memory_enabled=true` tests runtime retrieval
 - `ideas_tracker=true` tests the final write pipeline
 - `checkpoint_dir` is optional in API mode; it only changes local runtime artifacts
 
 ## 5. What success looks like
 
-In the core log you should see:
+In the GigaEvo log you should see:
 
-- `Memory namespace override: exp9`
-- `Using memory backend (class=gigaevo.memory_platform.shared_memory.memory, use_api=True, namespace=exp9, ...)`
+- `Memory namespace override: review_bank`
+- `Using memory backend (class=gigaevo.memory_platform.shared_memory.memory, use_api=True, namespace=review_bank, ...)`
 - `Selected ... memory idea(s) via red agent ...`
 
 If you instead see:
@@ -149,7 +153,7 @@ curl -X POST "http://localhost:8000/v1/search/unified" \
     "search_type": "vector",
     "query": "test retrieval query",
     "entity_type": "memory_card",
-    "namespace": "exp9",
+    "namespace": "review_bank",
     "channel": "latest",
     "document_kind": "full_card",
     "top_k": 5
@@ -178,14 +182,14 @@ Postgres says `extension "vector" is not available`
 
 Use `pgvector/pgvector:pg15`, not plain Postgres.
 
-Core says `No module named 'gigaevo_memory'`
+GigaEvo says `No module named 'gigaevo_memory'`
 
-Install the client package in the core env:
+Install the client package in the GigaEvo environment:
 
 ```bash
-python -m pip install -e /home/petranokhin/projects/gigaevo_memory/gigaevo-memory/client/python
+python -m pip install -e "$MEMORY_SERVICE_ROOT/client/python"
 ```
 
 Selector uses `namespace=default`
 
-Pass `namespace=...` on `run.py`, or set `api.namespace` in [config/memory.yaml](/home/petranokhin/projects/gigaevo_memory/gigaevo-core-internal/config/memory.yaml).
+Pass `namespace=...` on `run.py`, or set `api.namespace` in `config/memory_backend.yaml`.
