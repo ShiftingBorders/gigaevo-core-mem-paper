@@ -4,10 +4,14 @@
 [License: MIT](https://opensource.org/licenses/MIT)
 [Ruff](https://github.com/astral-sh/ruff)
 
-Evolutionary algorithm framework that uses Large Language Models to automatically
+Anonymous review artifact for a paper on memory mechanisms in LLM-guided
+evolutionary program search. GigaEvo uses Large Language Models to automatically
 improve programs through iterative mutation and selection (MAP-Elites). Programs
-are Python functions; fitness is task performance. The framework is task-agnostic
-and supports single runs, multi-island evolution, and prompt co-evolution.
+are Python functions; fitness is task performance.
+
+The main contribution in this artifact is the memory mechanism: an ideas tracker
+can write deduplicated memory cards from one run, and later evolution runs can
+read those cards to condition future mutations.
 
 ## Demo
 
@@ -25,6 +29,7 @@ Demo
 | ---------------------------------------------------- | ------------------------------------------------------ |
 | [DAG System](docs/DAG_SYSTEM.md)                     | Execution engine: stages, dependencies, caching        |
 | [Evolution Strategies](docs/EVOLUTION_STRATEGIES.md) | MAP-Elites, multi-island, migration                    |
+| [Memory Run Guide](README_memory.md)                 | Two-run workflow for writing and reusing memory cards  |
 | [Prompt Co-Evolution](docs/COEVOLUTION.md)           | Co-evolve mutation prompts alongside programs          |
 | [Tools](tools/README.md)                             | Analysis, debugging, and problem scaffolding utilities |
 | [Usage Guide](docs/USAGE.md)                         | Detailed usage and Hydra configuration                 |
@@ -85,10 +90,12 @@ Evolution starts immediately. Logs are saved to `outputs/`.
 ## How It Works
 
 1. **Load initial programs** from `problems/<name>/initial_programs/`
-2. **Mutate programs** using LLMs (GPT, Claude, Gemini, Qwen, etc.)
+2. **Mutate programs** using LLMs (GPT, Claude, Gemini, Qwen, etc.),
+   optionally conditioned on memory cards
 3. **Evaluate fitness** by running each program's `entrypoint()` + `validate()`
 4. **Select solutions** using MAP-Elites across a behavior space
-5. **Repeat** for N generations
+5. **Track ideas** and optionally write deduplicated memory cards
+6. **Repeat** for N generations
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -102,6 +109,52 @@ Evolution starts immediately. Logs are saved to `outputs/`.
                     │   (Redis)   │     │ (DAG Runner) │
                     └─────────────┘     └─────────────┘
 ```
+
+## Memory Mechanism
+
+The memory workflow is designed as two runs that share a checkpoint folder:
+
+1. Run without memory, but with the ideas tracker enabled, to write memory cards.
+2. Run with memory enabled, using the same checkpoint folder as the memory source.
+
+Before building memory cards, ensure these options are enabled in
+`config/memory.yaml`:
+
+```yaml
+ideas_tracker:
+  memory_write_pipeline:
+    enabled: true
+
+card_update_dedup:
+  enabled: true
+```
+
+### Build Memory Cards
+
+```bash
+python run.py \
+  problem.name=heilbron \
+  ideas_tracker=true \
+  checkpoint_dir=outputs/memory_bank_01
+```
+
+The ideas-tracker run folder will include `memory_write_stats.json` with per-run
+write statistics, including `updated` and `rejected` counts.
+
+### Run With Memory
+
+```bash
+python run.py \
+  problem.name=heilbron \
+  memory_enabled=true \
+  checkpoint_dir=outputs/memory_bank_01
+```
+
+When `memory_enabled=true`, `checkpoint_dir` becomes the memory GAM backend's
+`paths.checkpoint_dir` for reading and updating checkpointed memory state. When
+`ideas_tracker=true` and `ideas_tracker.memory_write_pipeline.enabled=true`, the
+same `checkpoint_dir` is used by the ideas tracker's final write step to store
+cards through the memory DB pipeline.
 
 ## Customization
 
